@@ -9,38 +9,309 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RelatoriosRouteImport } from './routes/relatorios'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ComprarRouteImport } from './routes/comprar'
+import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as RelatorioIdRouteImport } from './routes/relatorio.$id'
+import { Route as ConviteTokenRouteImport } from './routes/convite.$token'
+import { Route as AdminUsuariosRouteImport } from './routes/admin/usuarios'
+import { Route as AdminSalasRouteImport } from './routes/admin/salas'
+import { Route as AdminComissoesRouteImport } from './routes/admin/comissoes'
+import { Route as TestesIdDestinatarioRouteImport } from './routes/testes.$id.destinatario'
+import { Route as TesteIdSalasRouteImport } from './routes/teste.$id.salas'
+import { Route as TesteIdIntroRouteImport } from './routes/teste.$id.intro'
+import { Route as TesteIdConcluidoRouteImport } from './routes/teste.$id.concluido'
+import { Route as AdminSalasNovaRouteImport } from './routes/admin/salas.nova'
+import { Route as AdminSalasIdRouteImport } from './routes/admin/salas.$id'
+import { Route as TesteIdSalaSlugRouteImport } from './routes/teste.$id.sala.$slug'
 
+const RelatoriosRoute = RelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComprarRoute = ComprarRouteImport.update({
+  id: '/comprar',
+  path: '/comprar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CadastroRoute = CadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RelatorioIdRoute = RelatorioIdRouteImport.update({
+  id: '/relatorio/$id',
+  path: '/relatorio/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConviteTokenRoute = ConviteTokenRouteImport.update({
+  id: '/convite/$token',
+  path: '/convite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
+  id: '/admin/usuarios',
+  path: '/admin/usuarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSalasRoute = AdminSalasRouteImport.update({
+  id: '/admin/salas',
+  path: '/admin/salas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminComissoesRoute = AdminComissoesRouteImport.update({
+  id: '/admin/comissoes',
+  path: '/admin/comissoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TestesIdDestinatarioRoute = TestesIdDestinatarioRouteImport.update({
+  id: '/testes/$id/destinatario',
+  path: '/testes/$id/destinatario',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TesteIdSalasRoute = TesteIdSalasRouteImport.update({
+  id: '/teste/$id/salas',
+  path: '/teste/$id/salas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TesteIdIntroRoute = TesteIdIntroRouteImport.update({
+  id: '/teste/$id/intro',
+  path: '/teste/$id/intro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TesteIdConcluidoRoute = TesteIdConcluidoRouteImport.update({
+  id: '/teste/$id/concluido',
+  path: '/teste/$id/concluido',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSalasNovaRoute = AdminSalasNovaRouteImport.update({
+  id: '/nova',
+  path: '/nova',
+  getParentRoute: () => AdminSalasRoute,
+} as any)
+const AdminSalasIdRoute = AdminSalasIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminSalasRoute,
+} as any)
+const TesteIdSalaSlugRoute = TesteIdSalaSlugRouteImport.update({
+  id: '/teste/$id/sala/$slug',
+  path: '/teste/$id/sala/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
+  '/comprar': typeof ComprarRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/relatorios': typeof RelatoriosRoute
+  '/admin/comissoes': typeof AdminComissoesRoute
+  '/admin/salas': typeof AdminSalasRouteWithChildren
+  '/admin/usuarios': typeof AdminUsuariosRoute
+  '/convite/$token': typeof ConviteTokenRoute
+  '/relatorio/$id': typeof RelatorioIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/salas/$id': typeof AdminSalasIdRoute
+  '/admin/salas/nova': typeof AdminSalasNovaRoute
+  '/teste/$id/concluido': typeof TesteIdConcluidoRoute
+  '/teste/$id/intro': typeof TesteIdIntroRoute
+  '/teste/$id/salas': typeof TesteIdSalasRoute
+  '/testes/$id/destinatario': typeof TestesIdDestinatarioRoute
+  '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
+  '/comprar': typeof ComprarRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/relatorios': typeof RelatoriosRoute
+  '/admin/comissoes': typeof AdminComissoesRoute
+  '/admin/salas': typeof AdminSalasRouteWithChildren
+  '/admin/usuarios': typeof AdminUsuariosRoute
+  '/convite/$token': typeof ConviteTokenRoute
+  '/relatorio/$id': typeof RelatorioIdRoute
+  '/admin': typeof AdminIndexRoute
+  '/admin/salas/$id': typeof AdminSalasIdRoute
+  '/admin/salas/nova': typeof AdminSalasNovaRoute
+  '/teste/$id/concluido': typeof TesteIdConcluidoRoute
+  '/teste/$id/intro': typeof TesteIdIntroRoute
+  '/teste/$id/salas': typeof TesteIdSalasRoute
+  '/testes/$id/destinatario': typeof TestesIdDestinatarioRoute
+  '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
+  '/comprar': typeof ComprarRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/relatorios': typeof RelatoriosRoute
+  '/admin/comissoes': typeof AdminComissoesRoute
+  '/admin/salas': typeof AdminSalasRouteWithChildren
+  '/admin/usuarios': typeof AdminUsuariosRoute
+  '/convite/$token': typeof ConviteTokenRoute
+  '/relatorio/$id': typeof RelatorioIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/salas/$id': typeof AdminSalasIdRoute
+  '/admin/salas/nova': typeof AdminSalasNovaRoute
+  '/teste/$id/concluido': typeof TesteIdConcluidoRoute
+  '/teste/$id/intro': typeof TesteIdIntroRoute
+  '/teste/$id/salas': typeof TesteIdSalasRoute
+  '/testes/$id/destinatario': typeof TestesIdDestinatarioRoute
+  '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/cadastro'
+    | '/comprar'
+    | '/dashboard'
+    | '/login'
+    | '/relatorios'
+    | '/admin/comissoes'
+    | '/admin/salas'
+    | '/admin/usuarios'
+    | '/convite/$token'
+    | '/relatorio/$id'
+    | '/admin/'
+    | '/admin/salas/$id'
+    | '/admin/salas/nova'
+    | '/teste/$id/concluido'
+    | '/teste/$id/intro'
+    | '/teste/$id/salas'
+    | '/testes/$id/destinatario'
+    | '/teste/$id/sala/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/cadastro'
+    | '/comprar'
+    | '/dashboard'
+    | '/login'
+    | '/relatorios'
+    | '/admin/comissoes'
+    | '/admin/salas'
+    | '/admin/usuarios'
+    | '/convite/$token'
+    | '/relatorio/$id'
+    | '/admin'
+    | '/admin/salas/$id'
+    | '/admin/salas/nova'
+    | '/teste/$id/concluido'
+    | '/teste/$id/intro'
+    | '/teste/$id/salas'
+    | '/testes/$id/destinatario'
+    | '/teste/$id/sala/$slug'
+  id:
+    | '__root__'
+    | '/'
+    | '/cadastro'
+    | '/comprar'
+    | '/dashboard'
+    | '/login'
+    | '/relatorios'
+    | '/admin/comissoes'
+    | '/admin/salas'
+    | '/admin/usuarios'
+    | '/convite/$token'
+    | '/relatorio/$id'
+    | '/admin/'
+    | '/admin/salas/$id'
+    | '/admin/salas/nova'
+    | '/teste/$id/concluido'
+    | '/teste/$id/intro'
+    | '/teste/$id/salas'
+    | '/testes/$id/destinatario'
+    | '/teste/$id/sala/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CadastroRoute: typeof CadastroRoute
+  ComprarRoute: typeof ComprarRoute
+  DashboardRoute: typeof DashboardRoute
+  LoginRoute: typeof LoginRoute
+  RelatoriosRoute: typeof RelatoriosRoute
+  AdminComissoesRoute: typeof AdminComissoesRoute
+  AdminSalasRoute: typeof AdminSalasRouteWithChildren
+  AdminUsuariosRoute: typeof AdminUsuariosRoute
+  ConviteTokenRoute: typeof ConviteTokenRoute
+  RelatorioIdRoute: typeof RelatorioIdRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  TesteIdConcluidoRoute: typeof TesteIdConcluidoRoute
+  TesteIdIntroRoute: typeof TesteIdIntroRoute
+  TesteIdSalasRoute: typeof TesteIdSalasRoute
+  TestesIdDestinatarioRoute: typeof TestesIdDestinatarioRoute
+  TesteIdSalaSlugRoute: typeof TesteIdSalaSlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/relatorios': {
+      id: '/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof RelatoriosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comprar': {
+      id: '/comprar'
+      path: '/comprar'
+      fullPath: '/comprar'
+      preLoaderRoute: typeof ComprarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cadastro': {
+      id: '/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +319,132 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/relatorio/$id': {
+      id: '/relatorio/$id'
+      path: '/relatorio/$id'
+      fullPath: '/relatorio/$id'
+      preLoaderRoute: typeof RelatorioIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/convite/$token': {
+      id: '/convite/$token'
+      path: '/convite/$token'
+      fullPath: '/convite/$token'
+      preLoaderRoute: typeof ConviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/usuarios': {
+      id: '/admin/usuarios'
+      path: '/admin/usuarios'
+      fullPath: '/admin/usuarios'
+      preLoaderRoute: typeof AdminUsuariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/salas': {
+      id: '/admin/salas'
+      path: '/admin/salas'
+      fullPath: '/admin/salas'
+      preLoaderRoute: typeof AdminSalasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/comissoes': {
+      id: '/admin/comissoes'
+      path: '/admin/comissoes'
+      fullPath: '/admin/comissoes'
+      preLoaderRoute: typeof AdminComissoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/testes/$id/destinatario': {
+      id: '/testes/$id/destinatario'
+      path: '/testes/$id/destinatario'
+      fullPath: '/testes/$id/destinatario'
+      preLoaderRoute: typeof TestesIdDestinatarioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teste/$id/salas': {
+      id: '/teste/$id/salas'
+      path: '/teste/$id/salas'
+      fullPath: '/teste/$id/salas'
+      preLoaderRoute: typeof TesteIdSalasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teste/$id/intro': {
+      id: '/teste/$id/intro'
+      path: '/teste/$id/intro'
+      fullPath: '/teste/$id/intro'
+      preLoaderRoute: typeof TesteIdIntroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teste/$id/concluido': {
+      id: '/teste/$id/concluido'
+      path: '/teste/$id/concluido'
+      fullPath: '/teste/$id/concluido'
+      preLoaderRoute: typeof TesteIdConcluidoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/salas/nova': {
+      id: '/admin/salas/nova'
+      path: '/nova'
+      fullPath: '/admin/salas/nova'
+      preLoaderRoute: typeof AdminSalasNovaRouteImport
+      parentRoute: typeof AdminSalasRoute
+    }
+    '/admin/salas/$id': {
+      id: '/admin/salas/$id'
+      path: '/$id'
+      fullPath: '/admin/salas/$id'
+      preLoaderRoute: typeof AdminSalasIdRouteImport
+      parentRoute: typeof AdminSalasRoute
+    }
+    '/teste/$id/sala/$slug': {
+      id: '/teste/$id/sala/$slug'
+      path: '/teste/$id/sala/$slug'
+      fullPath: '/teste/$id/sala/$slug'
+      preLoaderRoute: typeof TesteIdSalaSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AdminSalasRouteChildren {
+  AdminSalasIdRoute: typeof AdminSalasIdRoute
+  AdminSalasNovaRoute: typeof AdminSalasNovaRoute
+}
+
+const AdminSalasRouteChildren: AdminSalasRouteChildren = {
+  AdminSalasIdRoute: AdminSalasIdRoute,
+  AdminSalasNovaRoute: AdminSalasNovaRoute,
+}
+
+const AdminSalasRouteWithChildren = AdminSalasRoute._addFileChildren(
+  AdminSalasRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CadastroRoute: CadastroRoute,
+  ComprarRoute: ComprarRoute,
+  DashboardRoute: DashboardRoute,
+  LoginRoute: LoginRoute,
+  RelatoriosRoute: RelatoriosRoute,
+  AdminComissoesRoute: AdminComissoesRoute,
+  AdminSalasRoute: AdminSalasRouteWithChildren,
+  AdminUsuariosRoute: AdminUsuariosRoute,
+  ConviteTokenRoute: ConviteTokenRoute,
+  RelatorioIdRoute: RelatorioIdRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  TesteIdConcluidoRoute: TesteIdConcluidoRoute,
+  TesteIdIntroRoute: TesteIdIntroRoute,
+  TesteIdSalasRoute: TesteIdSalasRoute,
+  TestesIdDestinatarioRoute: TestesIdDestinatarioRoute,
+  TesteIdSalaSlugRoute: TesteIdSalaSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
