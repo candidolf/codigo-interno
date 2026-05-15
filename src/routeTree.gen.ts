@@ -18,6 +18,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as RelatorioIdRouteImport } from './routes/relatorio.$id'
 import { Route as ConviteTokenRouteImport } from './routes/convite.$token'
 import { Route as TestesIdDestinatarioRouteImport } from './routes/testes.$id.destinatario'
+import { Route as TesteIdSalasRouteImport } from './routes/teste.$id.salas'
+import { Route as TesteIdIntroRouteImport } from './routes/teste.$id.intro'
 
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
@@ -64,6 +66,16 @@ const TestesIdDestinatarioRoute = TestesIdDestinatarioRouteImport.update({
   path: '/testes/$id/destinatario',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TesteIdSalasRoute = TesteIdSalasRouteImport.update({
+  id: '/teste/$id/salas',
+  path: '/teste/$id/salas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TesteIdIntroRoute = TesteIdIntroRouteImport.update({
+  id: '/teste/$id/intro',
+  path: '/teste/$id/intro',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -74,6 +86,8 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof RelatoriosRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/relatorio/$id': typeof RelatorioIdRoute
+  '/teste/$id/intro': typeof TesteIdIntroRoute
+  '/teste/$id/salas': typeof TesteIdSalasRoute
   '/testes/$id/destinatario': typeof TestesIdDestinatarioRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +99,8 @@ export interface FileRoutesByTo {
   '/relatorios': typeof RelatoriosRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/relatorio/$id': typeof RelatorioIdRoute
+  '/teste/$id/intro': typeof TesteIdIntroRoute
+  '/teste/$id/salas': typeof TesteIdSalasRoute
   '/testes/$id/destinatario': typeof TestesIdDestinatarioRoute
 }
 export interface FileRoutesById {
@@ -97,6 +113,8 @@ export interface FileRoutesById {
   '/relatorios': typeof RelatoriosRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/relatorio/$id': typeof RelatorioIdRoute
+  '/teste/$id/intro': typeof TesteIdIntroRoute
+  '/teste/$id/salas': typeof TesteIdSalasRoute
   '/testes/$id/destinatario': typeof TestesIdDestinatarioRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +128,8 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/convite/$token'
     | '/relatorio/$id'
+    | '/teste/$id/intro'
+    | '/teste/$id/salas'
     | '/testes/$id/destinatario'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +141,8 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/convite/$token'
     | '/relatorio/$id'
+    | '/teste/$id/intro'
+    | '/teste/$id/salas'
     | '/testes/$id/destinatario'
   id:
     | '__root__'
@@ -132,6 +154,8 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/convite/$token'
     | '/relatorio/$id'
+    | '/teste/$id/intro'
+    | '/teste/$id/salas'
     | '/testes/$id/destinatario'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +168,8 @@ export interface RootRouteChildren {
   RelatoriosRoute: typeof RelatoriosRoute
   ConviteTokenRoute: typeof ConviteTokenRoute
   RelatorioIdRoute: typeof RelatorioIdRoute
+  TesteIdIntroRoute: typeof TesteIdIntroRoute
+  TesteIdSalasRoute: typeof TesteIdSalasRoute
   TestesIdDestinatarioRoute: typeof TestesIdDestinatarioRoute
 }
 
@@ -212,6 +238,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TestesIdDestinatarioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/teste/$id/salas': {
+      id: '/teste/$id/salas'
+      path: '/teste/$id/salas'
+      fullPath: '/teste/$id/salas'
+      preLoaderRoute: typeof TesteIdSalasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teste/$id/intro': {
+      id: '/teste/$id/intro'
+      path: '/teste/$id/intro'
+      fullPath: '/teste/$id/intro'
+      preLoaderRoute: typeof TesteIdIntroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -224,6 +264,8 @@ const rootRouteChildren: RootRouteChildren = {
   RelatoriosRoute: RelatoriosRoute,
   ConviteTokenRoute: ConviteTokenRoute,
   RelatorioIdRoute: RelatorioIdRoute,
+  TesteIdIntroRoute: TesteIdIntroRoute,
+  TesteIdSalasRoute: TesteIdSalasRoute,
   TestesIdDestinatarioRoute: TestesIdDestinatarioRoute,
 }
 export const routeTree = rootRouteImport
