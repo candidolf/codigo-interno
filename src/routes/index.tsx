@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
-import { Brain, Compass, Sparkles, Target, ArrowRight, Check } from "lucide-react";
+import logoMark from "@/assets/logo-mark.png";
+import { Brain, Compass, Sparkles, Target, ArrowRight, Check, Mail, Instagram, Linkedin } from "lucide-react";
 
 export const Route = createFileRoute("/")({ component: Landing });
 
@@ -82,10 +83,56 @@ function Landing() {
           </div>
         </section>
 
-        <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-          © 2026 Código Interno · mockup demonstrativo
-        </footer>
       </main>
+      <footer className="border-t border-border/60 mt-8">
+        <div className="container mx-auto px-6 py-14 grid gap-10 md:grid-cols-4">
+          <div className="md:col-span-2">
+            <Link to="/" className="flex items-center gap-2.5">
+              <img src={logoMark} alt="Código Interno" width={40} height={40} className="h-10 w-10" />
+              <span className="font-display font-bold text-lg">
+                Código <span className="text-gradient-brand">Interno</span>
+              </span>
+            </Link>
+            <p className="mt-4 text-sm text-muted-foreground max-w-sm">
+              Avaliação psicológica gamificada conduzida por IA. Uma jornada por salas temáticas para entender quem você é.
+            </p>
+            <div className="mt-5 flex items-center gap-3">
+              <a href="mailto:contato@codigointerno.com" aria-label="Email" className="grid place-items-center h-9 w-9 rounded-full glass hover:bg-secondary/80 transition-colors">
+                <Mail className="h-4 w-4" />
+              </a>
+              <a href="#" aria-label="Instagram" className="grid place-items-center h-9 w-9 rounded-full glass hover:bg-secondary/80 transition-colors">
+                <Instagram className="h-4 w-4" />
+              </a>
+              <a href="#" aria-label="LinkedIn" className="grid place-items-center h-9 w-9 rounded-full glass hover:bg-secondary/80 transition-colors">
+                <Linkedin className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
+          <div>
+            <h4 className="font-display font-bold text-sm mb-4">Plataforma</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><Link to="/comprar" className="hover:text-foreground transition-colors">Comprar teste</Link></li>
+              <li><Link to="/login" className="hover:text-foreground transition-colors">Entrar</Link></li>
+              <li><Link to="/cadastro" className="hover:text-foreground transition-colors">Criar conta</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-display font-bold text-sm mb-4">Institucional</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><a href="#" className="hover:text-foreground transition-colors">Sobre</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">Termos de uso</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">Política de privacidade</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">Contato</a></li>
+            </ul>
+          </div>
+        </div>
+        <div className="border-t border-border/60">
+          <div className="container mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>© 2026 Código Interno · Todos os direitos reservados</span>
+            <span>Mockup demonstrativo</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
