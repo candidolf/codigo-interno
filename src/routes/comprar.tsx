@@ -48,7 +48,7 @@ function Comprar() {
           <aside className="glass rounded-2xl p-6 h-fit">
             <p className="text-xs uppercase tracking-widest text-muted-foreground">Resumo</p>
             <div className="flex justify-between mt-4">
-              <span>1 Teste PsychGame AI</span>
+              <span>1 Teste Código Interno</span>
               <span>R$ 29,90</span>
             </div>
             <div className="border-t border-border my-4" />

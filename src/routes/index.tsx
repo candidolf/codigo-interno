@@ -83,7 +83,7 @@ function Landing() {
         </section>
 
         <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-          © 2026 PsychGame AI · mockup demonstrativo
+          © 2026 Código Interno · mockup demonstrativo
         </footer>
       </main>
     </div>

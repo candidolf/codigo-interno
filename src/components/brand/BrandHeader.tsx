@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import logo from "@/assets/logo.png";
+import logoMark from "@/assets/logo-mark.png";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -31,9 +31,9 @@ export function BrandHeader({ role = "guest" as Role }) {
     <header className="sticky top-0 z-30 backdrop-blur-md bg-background/70 border-b border-border/60">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2.5">
-          <img src={logo} alt="PsychGame AI" width={36} height={36} className="h-9 w-9" />
-          <span className="font-display font-bold text-lg tracking-tight">
-            PsychGame <span className="text-gradient-brand">AI</span>
+          <img src={logoMark} alt="Código Interno" width={40} height={40} className="h-10 w-10" />
+          <span className="hidden sm:inline font-display font-bold text-lg tracking-tight leading-none">
+            Código <span className="text-gradient-brand">Interno</span>
           </span>
         </Link>
         <nav className="hidden md:flex items-center gap-1">
