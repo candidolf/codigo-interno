@@ -83,7 +83,7 @@ function Cadastro() {
             />
           </div>
           <div className="space-y-2">
-            <Label>Celular (WhatsApp)</Label>
+            <Label>Celular (whatsapp)</Label>
             <Input
               inputMode="numeric"
               placeholder="(11) 99999-9999"
