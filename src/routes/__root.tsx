@@ -72,9 +72,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PsychGame AI — Autoconhecimento gamificado" },
-      { name: "description", content: "Teste de autoconhecimento em formato de jogo com análise por IA." },
-      { property: "og:title", content: "PsychGame AI" },
+      { title: "Código Interno — Autoconhecimento gamificado" },
+      { name: "description", content: "Teste de autoconhecimento em formato de jogo, com análise por IA. Entenda sua mente. Escolha seu caminho." },
+      { property: "og:title", content: "Código Interno" },
       { property: "og:description", content: "Entenda sua mente. Escolha seu caminho." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
