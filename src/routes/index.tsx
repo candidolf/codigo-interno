@@ -20,7 +20,7 @@ function Landing() {
       <main className="container mx-auto px-6">
         <section className="pt-20 pb-24 text-center">
           <span className="inline-block text-xs uppercase tracking-widest text-muted-foreground glass rounded-full px-4 py-1.5">
-            Avaliação psicológica gamificada
+            Avaliação comportamental gamificada
           </span>
           <h1 className="font-display text-5xl md:text-7xl font-bold mt-6 leading-[1.05] max-w-4xl mx-auto">
             Entenda sua mente.<br />
@@ -91,7 +91,7 @@ function Landing() {
               <img src={logoFull} alt="Código Interno" className="h-10 w-auto" />
             </Link>
             <p className="mt-4 text-sm text-muted-foreground max-w-sm">
-              Avaliação psicológica gamificada conduzida por IA. Uma jornada por salas temáticas para entender quem você é.
+              Avaliação comportamental gamificada conduzida por IA. Uma jornada por salas temáticas para entender quem você é.
             </p>
             <div className="mt-5 flex items-center gap-3">
               <a href="mailto:contato@codigointerno.com" aria-label="Email" className="grid place-items-center h-9 w-9 rounded-full glass hover:bg-secondary/80 transition-colors">
