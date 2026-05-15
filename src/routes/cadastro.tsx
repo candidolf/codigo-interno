@@ -14,6 +14,13 @@ function formatDateInput(value: string) {
   return parts.join("/");
 }
 
+function formatPhoneInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
 function parseBR(value: string): Date | null {
   const m = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (!m) return null;
@@ -36,6 +43,7 @@ function calcAge(date: Date) {
 function Cadastro() {
   const navigate = useNavigate();
   const [birthDate, setBirthDate] = useState("");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = (e: React.FormEvent) => {
@@ -72,6 +80,16 @@ function Cadastro() {
               value={birthDate}
               maxLength={10}
               onChange={(e) => setBirthDate(formatDateInput(e.target.value))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Celular (WhatsApp)</Label>
+            <Input
+              inputMode="numeric"
+              placeholder="(11) 99999-9999"
+              value={phone}
+              maxLength={16}
+              onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
             />
           </div>
           <div className="space-y-2"><Label>Senha</Label><Input type="password" placeholder="••••••••" /></div>
