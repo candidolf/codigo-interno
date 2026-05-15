@@ -11,8 +11,8 @@ function Login() {
     <div className="min-h-screen">
       <BrandHeader />
       <main className="container mx-auto px-6 py-16 max-w-md">
-        <h1 className="font-display text-3xl font-bold">Bem vindo</h1>
-        <p className="text-muted-foreground mt-2">Entre com seu login</p>
+        <h1 className="font-display text-3xl font-bold text-center">Bem vindo</h1>
+        <p className="text-muted-foreground mt-2 text-center">Entre com seu login</p>
         <form className="glass rounded-2xl p-6 mt-8 space-y-4">
           <div className="space-y-2">
             <Label>E-mail</Label>
