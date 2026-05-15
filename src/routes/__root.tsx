@@ -74,11 +74,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Código Interno — Autoconhecimento gamificado" },
       { name: "description", content: "Teste de autoconhecimento em formato de jogo, com análise por IA. Entenda sua mente. Escolha seu caminho." },
-      { property: "og:title", content: "Código Interno" },
-      { property: "og:description", content: "Entenda sua mente. Escolha seu caminho." },
+      { property: "og:title", content: "Código Interno — Autoconhecimento gamificado" },
+      { property: "og:description", content: "Teste de autoconhecimento em formato de jogo, com análise por IA. Entenda sua mente. Escolha seu caminho." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Código Interno — Autoconhecimento gamificado" },
+      { name: "twitter:description", content: "Teste de autoconhecimento em formato de jogo, com análise por IA. Entenda sua mente. Escolha seu caminho." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/636141af-aed8-4486-ab93-9e58a6ba9cf6/id-preview-7db2ee9f--910449f5-acc5-4f98-825e-af298045f1a4.lovable.app-1778851826918.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/636141af-aed8-4486-ab93-9e58a6ba9cf6/id-preview-7db2ee9f--910449f5-acc5-4f98-825e-af298045f1a4.lovable.app-1778851826918.png" },
     ],
     links: [
       {
