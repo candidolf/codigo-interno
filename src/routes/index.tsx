@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
-import logoMark from "@/assets/logo-mark.png";
+import logoFull from "@/assets/logo-full.png";
 import { Brain, Compass, Sparkles, Target, ArrowRight, Check, Mail, Instagram, Linkedin } from "lucide-react";
 
 export const Route = createFileRoute("/")({ component: Landing });
@@ -87,11 +87,8 @@ function Landing() {
       <footer className="border-t border-border/60 mt-8">
         <div className="container mx-auto px-6 py-14 grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
-            <Link to="/" className="flex items-center gap-2.5">
-              <img src={logoMark} alt="Código Interno" width={40} height={40} className="h-10 w-10" />
-              <span className="font-display font-bold text-lg">
-                Código <span className="text-gradient-brand">Interno</span>
-              </span>
+            <Link to="/" className="flex items-center">
+              <img src={logoFull} alt="Código Interno" className="h-10 w-auto" />
             </Link>
             <p className="mt-4 text-sm text-muted-foreground max-w-sm">
               Avaliação psicológica gamificada conduzida por IA. Uma jornada por salas temáticas para entender quem você é.
