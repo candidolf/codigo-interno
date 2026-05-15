@@ -82,6 +82,16 @@ function Cadastro() {
               onChange={(e) => setBirthDate(formatDateInput(e.target.value))}
             />
           </div>
+          <div className="space-y-2">
+            <Label>Celular (WhatsApp)</Label>
+            <Input
+              inputMode="numeric"
+              placeholder="(11) 99999-9999"
+              value={phone}
+              maxLength={16}
+              onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
+            />
+          </div>
           <div className="space-y-2"><Label>Senha</Label><Input type="password" placeholder="••••••••" /></div>
           {error && (
             <Alert variant="destructive">
