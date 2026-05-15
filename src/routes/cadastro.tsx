@@ -43,6 +43,7 @@ function calcAge(date: Date) {
 function Cadastro() {
   const navigate = useNavigate();
   const [birthDate, setBirthDate] = useState("");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = (e: React.FormEvent) => {
