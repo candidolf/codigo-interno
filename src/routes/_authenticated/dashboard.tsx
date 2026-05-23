@@ -5,7 +5,7 @@ import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { StatCard } from "@/components/brand/StatCard";
 import { TestStatusBadge } from "@/components/brand/TestStatusBadge";
-import { ShoppingBag, FileText, Users, Plus } from "lucide-react";
+import { ShoppingBag, FileText, Users, User, Gift } from "lucide-react";
 import { listMyPurchases } from "@/lib/purchases.functions";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -45,9 +45,14 @@ function Dashboard() {
             <p className="text-sm text-muted-foreground">Olá</p>
             <h1 className="font-display text-4xl font-bold mt-1">Seus testes</h1>
           </div>
-          <GradientButton size="lg" asChild>
-            <Link to="/comprar" className="cursor-pointer"><Plus className="h-4 w-4" />Comprar novo teste — R$ 29,90</Link>
-          </GradientButton>
+          <div className="flex flex-wrap gap-3">
+            <GradientButton size="lg" asChild>
+              <Link to="/comprar" search={{ destinatario: "eu" }} className="cursor-pointer"><User className="h-4 w-4" />Comprar pra mim</Link>
+            </GradientButton>
+            <GradientButton size="lg" variant="outline" asChild>
+              <Link to="/comprar" search={{ destinatario: "outro" }} className="cursor-pointer"><Gift className="h-4 w-4" />Comprar pra alguém</Link>
+            </GradientButton>
+          </div>
         </div>
 
         <div className="grid sm:grid-cols-3 gap-4 mt-8">
