@@ -6,6 +6,13 @@ import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
 
 type Role = "guest" | "master" | "admin" | "user";
 
+const homeByRole: Record<Role, string> = {
+  guest: "/",
+  master: "/dashboard",
+  user: "/dashboard",
+  admin: "/admin",
+};
+
 const navByRole: Record<Role, { to: string; label: string }[]> = {
   guest: [{ to: "/", label: "Início" }, { to: "/login", label: "Login" }],
   master: [
@@ -27,9 +34,11 @@ const navByRole: Record<Role, { to: string; label: string }[]> = {
 };
 
 export function BrandHeader() {
-  const { role } = useCurrentRole();
+  const { role, loading } = useCurrentRole();
   const navigate = useNavigate();
-  const items = navByRole[role];
+  // Enquanto o papel carrega, se houver sessão ativa não devemos mostrar o menu de visitante
+  // (que aponta "Início" para "/"). Renderizamos um menu vazio até saber o papel.
+  const items = loading ? [] : navByRole[role];
 
   const onLogout = async () => {
     if (supabaseConfigured) await supabase.auth.signOut();
@@ -52,7 +61,7 @@ export function BrandHeader() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          {role === "guest" ? (
+          {loading ? null : role === "guest" ? (
             <Button asChild size="sm" className="bg-gradient-brand text-white border-0 hover:opacity-90 cursor-pointer">
               <Link to="/cadastro">Criar conta</Link>
             </Button>
@@ -64,3 +73,6 @@ export function BrandHeader() {
     </header>
   );
 }
+
+// Mantemos homeByRole exportado caso outros componentes precisem do destino "Início" por papel.
+export { homeByRole };
