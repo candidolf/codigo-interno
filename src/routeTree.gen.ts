@@ -11,9 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as ComprarRouteImport } from './routes/comprar'
 import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as RelatorioIdRouteImport } from './routes/relatorio.$id'
@@ -21,13 +20,15 @@ import { Route as ConviteTokenRouteImport } from './routes/convite.$token'
 import { Route as AdminUsuariosRouteImport } from './routes/admin/usuarios'
 import { Route as AdminSalasRouteImport } from './routes/admin/salas'
 import { Route as AdminComissoesRouteImport } from './routes/admin/comissoes'
-import { Route as TestesIdDestinatarioRouteImport } from './routes/testes.$id.destinatario'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedComprarRouteImport } from './routes/_authenticated/comprar'
 import { Route as TesteIdSalasRouteImport } from './routes/teste.$id.salas'
 import { Route as TesteIdIntroRouteImport } from './routes/teste.$id.intro'
 import { Route as TesteIdConcluidoRouteImport } from './routes/teste.$id.concluido'
 import { Route as AdminSalasNovaRouteImport } from './routes/admin/salas.nova'
 import { Route as AdminSalasIdRouteImport } from './routes/admin/salas.$id'
 import { Route as TesteIdSalaSlugRouteImport } from './routes/teste.$id.sala.$slug'
+import { Route as AuthenticatedTestesIdDestinatarioRouteImport } from './routes/_authenticated/testes.$id.destinatario'
 
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
@@ -39,19 +40,13 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ComprarRoute = ComprarRouteImport.update({
-  id: '/comprar',
-  path: '/comprar',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CadastroRoute = CadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -89,10 +84,15 @@ const AdminComissoesRoute = AdminComissoesRouteImport.update({
   path: '/admin/comissoes',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TestesIdDestinatarioRoute = TestesIdDestinatarioRouteImport.update({
-  id: '/testes/$id/destinatario',
-  path: '/testes/$id/destinatario',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedComprarRoute = AuthenticatedComprarRouteImport.update({
+  id: '/comprar',
+  path: '/comprar',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const TesteIdSalasRoute = TesteIdSalasRouteImport.update({
   id: '/teste/$id/salas',
@@ -124,14 +124,20 @@ const TesteIdSalaSlugRoute = TesteIdSalaSlugRouteImport.update({
   path: '/teste/$id/sala/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTestesIdDestinatarioRoute =
+  AuthenticatedTestesIdDestinatarioRouteImport.update({
+    id: '/testes/$id/destinatario',
+    path: '/testes/$id/destinatario',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
-  '/comprar': typeof ComprarRoute
-  '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
+  '/comprar': typeof AuthenticatedComprarRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/comissoes': typeof AdminComissoesRoute
   '/admin/salas': typeof AdminSalasRouteWithChildren
   '/admin/usuarios': typeof AdminUsuariosRoute
@@ -143,16 +149,16 @@ export interface FileRoutesByFullPath {
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
-  '/testes/$id/destinatario': typeof TestesIdDestinatarioRoute
+  '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
-  '/comprar': typeof ComprarRoute
-  '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
+  '/comprar': typeof AuthenticatedComprarRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/comissoes': typeof AdminComissoesRoute
   '/admin/salas': typeof AdminSalasRouteWithChildren
   '/admin/usuarios': typeof AdminUsuariosRoute
@@ -164,17 +170,18 @@ export interface FileRoutesByTo {
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
-  '/testes/$id/destinatario': typeof TestesIdDestinatarioRoute
+  '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/cadastro': typeof CadastroRoute
-  '/comprar': typeof ComprarRoute
-  '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
+  '/_authenticated/comprar': typeof AuthenticatedComprarRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/comissoes': typeof AdminComissoesRoute
   '/admin/salas': typeof AdminSalasRouteWithChildren
   '/admin/usuarios': typeof AdminUsuariosRoute
@@ -186,7 +193,7 @@ export interface FileRoutesById {
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
-  '/testes/$id/destinatario': typeof TestesIdDestinatarioRoute
+  '/_authenticated/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
 }
 export interface FileRouteTypes {
@@ -194,10 +201,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/cadastro'
-    | '/comprar'
-    | '/dashboard'
     | '/login'
     | '/relatorios'
+    | '/comprar'
+    | '/dashboard'
     | '/admin/comissoes'
     | '/admin/salas'
     | '/admin/usuarios'
@@ -215,10 +222,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/cadastro'
-    | '/comprar'
-    | '/dashboard'
     | '/login'
     | '/relatorios'
+    | '/comprar'
+    | '/dashboard'
     | '/admin/comissoes'
     | '/admin/salas'
     | '/admin/usuarios'
@@ -235,11 +242,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
     | '/cadastro'
-    | '/comprar'
-    | '/dashboard'
     | '/login'
     | '/relatorios'
+    | '/_authenticated/comprar'
+    | '/_authenticated/dashboard'
     | '/admin/comissoes'
     | '/admin/salas'
     | '/admin/usuarios'
@@ -251,15 +259,14 @@ export interface FileRouteTypes {
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
-    | '/testes/$id/destinatario'
+    | '/_authenticated/testes/$id/destinatario'
     | '/teste/$id/sala/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   CadastroRoute: typeof CadastroRoute
-  ComprarRoute: typeof ComprarRoute
-  DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   RelatoriosRoute: typeof RelatoriosRoute
   AdminComissoesRoute: typeof AdminComissoesRoute
@@ -271,7 +278,6 @@ export interface RootRouteChildren {
   TesteIdConcluidoRoute: typeof TesteIdConcluidoRoute
   TesteIdIntroRoute: typeof TesteIdIntroRoute
   TesteIdSalasRoute: typeof TesteIdSalasRoute
-  TestesIdDestinatarioRoute: typeof TestesIdDestinatarioRoute
   TesteIdSalaSlugRoute: typeof TesteIdSalaSlugRoute
 }
 
@@ -291,25 +297,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/comprar': {
-      id: '/comprar'
-      path: '/comprar'
-      fullPath: '/comprar'
-      preLoaderRoute: typeof ComprarRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/cadastro': {
       id: '/cadastro'
       path: '/cadastro'
       fullPath: '/cadastro'
       preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -361,12 +360,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminComissoesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/testes/$id/destinatario': {
-      id: '/testes/$id/destinatario'
-      path: '/testes/$id/destinatario'
-      fullPath: '/testes/$id/destinatario'
-      preLoaderRoute: typeof TestesIdDestinatarioRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/comprar': {
+      id: '/_authenticated/comprar'
+      path: '/comprar'
+      fullPath: '/comprar'
+      preLoaderRoute: typeof AuthenticatedComprarRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/teste/$id/salas': {
       id: '/teste/$id/salas'
@@ -410,8 +416,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TesteIdSalaSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/testes/$id/destinatario': {
+      id: '/_authenticated/testes/$id/destinatario'
+      path: '/testes/$id/destinatario'
+      fullPath: '/testes/$id/destinatario'
+      preLoaderRoute: typeof AuthenticatedTestesIdDestinatarioRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedComprarRoute: typeof AuthenticatedComprarRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedTestesIdDestinatarioRoute: typeof AuthenticatedTestesIdDestinatarioRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedComprarRoute: AuthenticatedComprarRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedTestesIdDestinatarioRoute:
+    AuthenticatedTestesIdDestinatarioRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
 
 interface AdminSalasRouteChildren {
   AdminSalasIdRoute: typeof AdminSalasIdRoute
@@ -429,9 +459,8 @@ const AdminSalasRouteWithChildren = AdminSalasRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
   CadastroRoute: CadastroRoute,
-  ComprarRoute: ComprarRoute,
-  DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   RelatoriosRoute: RelatoriosRoute,
   AdminComissoesRoute: AdminComissoesRoute,
@@ -443,7 +472,6 @@ const rootRouteChildren: RootRouteChildren = {
   TesteIdConcluidoRoute: TesteIdConcluidoRoute,
   TesteIdIntroRoute: TesteIdIntroRoute,
   TesteIdSalasRoute: TesteIdSalasRoute,
-  TestesIdDestinatarioRoute: TestesIdDestinatarioRoute,
   TesteIdSalaSlugRoute: TesteIdSalaSlugRoute,
 }
 export const routeTree = rootRouteImport
