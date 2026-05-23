@@ -1,23 +1,27 @@
+## Diagnóstico
+
+Eu interpretei errado da última vez: mudei só o destino do **logo**. O usuário quer um item de menu **"Início"** visível no header para qualquer role logado, levando à home do role. Hoje só o nav `guest` tem esse item; `master`, `user` e `admin` não têm.
+
 ## Mudanças
 
-### 1. Logo / "Início" do header leva à home do role
-Em `src/components/brand/BrandHeader.tsx`, hoje o `<Link to="/">` do logo manda todo mundo para a landing pública. Para usuário logado deve ir para a home correspondente:
-- `master` → `/dashboard`
-- `user` → `/dashboard`
-- `admin` → `/admin`
-- `guest` → `/`
+Em `src/components/brand/BrandHeader.tsx`:
 
-Implementação: calcular `homeByRole[role]` e usar no `to` do logo. Sem novo item no nav.
+### 1. Item "Início" no nav de cada role logado
+Prefixar cada nav com um item "Início" apontando para `homeByRole[role]`:
+- `master` → "Início" → `/dashboard` + (Meus testes, Relatórios, Comprar teste)
+- `user` → "Início" → `/dashboard` + (Meu teste)
+- `admin` → "Início" → `/admin` + (Salas, Usuários, Comissões) — remove "Painel" (era a mesma rota que "Início")
 
-### 2. Botão "Voltar" na tela de salas
-Em `src/routes/teste.$id.salas.tsx`, adicionar acima do título um link padrão:
-```
-← Voltar
-```
-Apontando para `/dashboard` (home do master, de onde a jornada do teste começa). Estilo igual ao já usado em `teste.$id.sala.$slug.tsx` (`inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground`).
+No master, "Início" (/dashboard) e "Meus testes" (/dashboard) apontam para a mesma rota; mantenho ambos por enquanto (semanticamente distintos).
 
-## Arquivos tocados
-- `src/components/brand/BrandHeader.tsx`
-- `src/routes/teste.$id.salas.tsx`
+### 2. Logo sempre vai para a landing `/`
+Reverter a mudança anterior: o `<Link>` do logo volta a ser `to="/"` para todos os roles. Clicar no logo sempre leva para a landing pública, independente de estar logado.
+
+Assim:
+- **Logo** → sempre `/` (landing).
+- **"Início" no nav** → home do role (dashboard / admin).
+
+## Arquivo tocado
+- `src/components/brand/BrandHeader.tsx` (objeto `navByRole` + reverter `to` do logo; `homeByRole` continua sendo usado só para gerar o item "Início").
 
 Posso seguir?
