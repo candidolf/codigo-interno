@@ -19,11 +19,15 @@ function Sala() {
     const state = loadProgress(id);
     const started = state.startedRoom;
     const thisCompleted = Boolean(state.rooms[slug]?.completedAt);
+    if (thisCompleted) {
+      navigate({ to: "/teste/$id/sala-concluida/$slug", params: { id, slug } });
+      return;
+    }
     if (started && started !== slug && !thisCompleted) {
       navigate({ to: "/teste/$id/salas", params: { id } });
       return;
     }
-    if (!thisCompleted) startRoom(id, slug);
+    startRoom(id, slug);
   }, [id, slug, room, navigate]);
 
   if (!room) return <div className="p-10">Sala não encontrada.</div>;
