@@ -6,7 +6,7 @@ import { PartyPopper } from "lucide-react";
 import { questions as allQuestions, rooms, themeStyle } from "@/data/mock";
 import { allRoomsCompleted, loadProgress } from "@/lib/test-progress";
 
-export const Route = createFileRoute("/teste/$id/sala/$slug/concluida")({ component: SalaConcluida });
+export const Route = createFileRoute("/teste/$id/sala-concluida/$slug")({ component: SalaConcluida });
 
 function SalaConcluida() {
   const { id, slug } = Route.useParams();
