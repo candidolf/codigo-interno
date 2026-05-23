@@ -67,6 +67,17 @@ function Comprar() {
         <form onSubmit={onSubmit} className="grid md:grid-cols-3 gap-6 mt-8">
           <div className="md:col-span-2 glass rounded-2xl p-6 space-y-5">
             <div>
+              <Label className="mb-3 block">Para quem é este teste?</Label>
+              <RadioGroup value={destinatario} onValueChange={(v) => setDestinatario(v as "eu" | "outro")} className="grid grid-cols-2 gap-3">
+                <label className="flex items-center gap-3 p-4 rounded-xl border border-border cursor-pointer hover:bg-secondary/40">
+                  <RadioGroupItem value="eu" /> <span>Para mim</span>
+                </label>
+                <label className="flex items-center gap-3 p-4 rounded-xl border border-border cursor-pointer hover:bg-secondary/40">
+                  <RadioGroupItem value="outro" /> <span>Para outra pessoa</span>
+                </label>
+              </RadioGroup>
+            </div>
+            <div>
               <Label className="mb-3 block">Forma de pagamento</Label>
               <RadioGroup value={method} onValueChange={(v) => setMethod(v as "pix" | "card")} className="grid grid-cols-2 gap-3">
                 <label className="flex items-center gap-3 p-4 rounded-xl border border-border cursor-pointer hover:bg-secondary/40">
