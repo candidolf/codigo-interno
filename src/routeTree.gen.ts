@@ -29,6 +29,7 @@ import { Route as AdminSalasNovaRouteImport } from './routes/admin/salas.nova'
 import { Route as AdminSalasIdRouteImport } from './routes/admin/salas.$id'
 import { Route as TesteIdSalaSlugRouteImport } from './routes/teste.$id.sala.$slug'
 import { Route as AuthenticatedTestesIdDestinatarioRouteImport } from './routes/_authenticated/testes.$id.destinatario'
+import { Route as TesteIdSalaSlugConcluidaRouteImport } from './routes/teste.$id.sala.$slug.concluida'
 
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
@@ -130,6 +131,12 @@ const AuthenticatedTestesIdDestinatarioRoute =
     path: '/testes/$id/destinatario',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const TesteIdSalaSlugConcluidaRoute =
+  TesteIdSalaSlugConcluidaRouteImport.update({
+    id: '/concluida',
+    path: '/concluida',
+    getParentRoute: () => TesteIdSalaSlugRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -150,7 +157,8 @@ export interface FileRoutesByFullPath {
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
   '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
-  '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
+  '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRouteWithChildren
+  '/teste/$id/sala/$slug/concluida': typeof TesteIdSalaSlugConcluidaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -171,7 +179,8 @@ export interface FileRoutesByTo {
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
   '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
-  '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
+  '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRouteWithChildren
+  '/teste/$id/sala/$slug/concluida': typeof TesteIdSalaSlugConcluidaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -194,7 +203,8 @@ export interface FileRoutesById {
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
   '/_authenticated/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
-  '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
+  '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRouteWithChildren
+  '/teste/$id/sala/$slug/concluida': typeof TesteIdSalaSlugConcluidaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/teste/$id/salas'
     | '/testes/$id/destinatario'
     | '/teste/$id/sala/$slug'
+    | '/teste/$id/sala/$slug/concluida'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/teste/$id/salas'
     | '/testes/$id/destinatario'
     | '/teste/$id/sala/$slug'
+    | '/teste/$id/sala/$slug/concluida'
   id:
     | '__root__'
     | '/'
@@ -261,6 +273,7 @@ export interface FileRouteTypes {
     | '/teste/$id/salas'
     | '/_authenticated/testes/$id/destinatario'
     | '/teste/$id/sala/$slug'
+    | '/teste/$id/sala/$slug/concluida'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -278,7 +291,7 @@ export interface RootRouteChildren {
   TesteIdConcluidoRoute: typeof TesteIdConcluidoRoute
   TesteIdIntroRoute: typeof TesteIdIntroRoute
   TesteIdSalasRoute: typeof TesteIdSalasRoute
-  TesteIdSalaSlugRoute: typeof TesteIdSalaSlugRoute
+  TesteIdSalaSlugRoute: typeof TesteIdSalaSlugRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -423,6 +436,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTestesIdDestinatarioRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/teste/$id/sala/$slug/concluida': {
+      id: '/teste/$id/sala/$slug/concluida'
+      path: '/concluida'
+      fullPath: '/teste/$id/sala/$slug/concluida'
+      preLoaderRoute: typeof TesteIdSalaSlugConcluidaRouteImport
+      parentRoute: typeof TesteIdSalaSlugRoute
+    }
   }
 }
 
@@ -457,6 +477,18 @@ const AdminSalasRouteWithChildren = AdminSalasRoute._addFileChildren(
   AdminSalasRouteChildren,
 )
 
+interface TesteIdSalaSlugRouteChildren {
+  TesteIdSalaSlugConcluidaRoute: typeof TesteIdSalaSlugConcluidaRoute
+}
+
+const TesteIdSalaSlugRouteChildren: TesteIdSalaSlugRouteChildren = {
+  TesteIdSalaSlugConcluidaRoute: TesteIdSalaSlugConcluidaRoute,
+}
+
+const TesteIdSalaSlugRouteWithChildren = TesteIdSalaSlugRoute._addFileChildren(
+  TesteIdSalaSlugRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
@@ -472,7 +504,7 @@ const rootRouteChildren: RootRouteChildren = {
   TesteIdConcluidoRoute: TesteIdConcluidoRoute,
   TesteIdIntroRoute: TesteIdIntroRoute,
   TesteIdSalasRoute: TesteIdSalasRoute,
-  TesteIdSalaSlugRoute: TesteIdSalaSlugRoute,
+  TesteIdSalaSlugRoute: TesteIdSalaSlugRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
