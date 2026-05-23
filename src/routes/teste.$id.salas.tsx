@@ -15,7 +15,7 @@ function Salas() {
   const allDone = eligible.every((r) => (progressBySlug[r.slug] ?? 0) === 100);
   return (
     <div className="min-h-screen">
-      <BrandHeader role="user" />
+      <BrandHeader />
       <main className="container mx-auto px-6 py-12">
         <div className="flex flex-wrap justify-between items-end gap-4">
           <div>

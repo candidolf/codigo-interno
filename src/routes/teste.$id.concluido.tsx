@@ -9,7 +9,7 @@ function Concluido() {
   const { id } = Route.useParams();
   return (
     <div className="min-h-screen">
-      <BrandHeader role="user" />
+      <BrandHeader />
       <main className="container mx-auto px-6 py-20 max-w-xl text-center">
         <span className="inline-grid place-items-center h-20 w-20 rounded-3xl bg-gradient-brand text-white mx-auto">
           <PartyPopper className="h-9 w-9" />

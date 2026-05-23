@@ -9,7 +9,7 @@ function Intro() {
   const { id } = Route.useParams();
   return (
     <div className="min-h-screen">
-      <BrandHeader role="user" />
+      <BrandHeader />
       <main className="container mx-auto px-6 py-20 max-w-2xl text-center">
         <span className="inline-grid place-items-center h-16 w-16 rounded-2xl bg-gradient-brand text-white mx-auto">
           <Sparkles className="h-7 w-7" />

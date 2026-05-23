@@ -11,7 +11,7 @@ export const Route = createFileRoute("/admin/salas")({ component: AdminSalas });
 function AdminSalas() {
   return (
     <div className="min-h-screen">
-      <BrandHeader role="admin" />
+      <BrandHeader />
       <main className="container mx-auto px-6 py-12">
         <div className="flex justify-between items-end gap-4">
           <div>

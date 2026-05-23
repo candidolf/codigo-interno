@@ -16,7 +16,7 @@ function Sala() {
 
   return (
     <div className="min-h-screen">
-      <BrandHeader role="user" />
+      <BrandHeader />
       <main className="container mx-auto px-6 py-10">
         <Link to="/teste/$id/salas" params={{ id }} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="h-4 w-4" /> Voltar ao mapa
