@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { User, Gift } from "lucide-react";
 
-export const Route = createFileRoute("/testes/$id/destinatario")({ component: Destinatario });
+export const Route = createFileRoute("/_authenticated/testes/$id/destinatario")({ component: Destinatario });
 
 function Destinatario() {
   const { id } = Route.useParams();

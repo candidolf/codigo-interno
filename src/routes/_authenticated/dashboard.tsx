@@ -6,7 +6,7 @@ import { TestStatusBadge } from "@/components/brand/TestStatusBadge";
 import { purchases } from "@/data/mock";
 import { ShoppingBag, FileText, Users, Plus } from "lucide-react";
 
-export const Route = createFileRoute("/dashboard")({ component: Dashboard });
+export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
 function Dashboard() {
   const completed = purchases.filter((p) => p.status === "Concluído").length;

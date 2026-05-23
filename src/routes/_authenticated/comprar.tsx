@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-export const Route = createFileRoute("/comprar")({ component: Comprar });
+export const Route = createFileRoute("/_authenticated/comprar")({ component: Comprar });
 
 function Comprar() {
   return (
