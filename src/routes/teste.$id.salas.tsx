@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { RoomCard } from "@/components/brand/RoomCard";
 import { GradientButton } from "@/components/brand/GradientButton";
+import { ArrowLeft } from "lucide-react";
 import { rooms, questions as allQuestions } from "@/data/mock";
 import { getPurchaseTestando } from "@/lib/purchases.functions";
 import { allRoomsCompleted, getRoomProgress, loadProgress, type ProgressState } from "@/lib/test-progress";
@@ -41,6 +42,9 @@ function Salas() {
     <div className="min-h-screen">
       <BrandHeader />
       <main className="container mx-auto px-6 py-12">
+        <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 cursor-pointer">
+          <ArrowLeft className="h-4 w-4" /> Voltar
+        </Link>
         <div className="flex flex-wrap justify-between items-end gap-4">
           <div>
             <p className="text-sm text-muted-foreground">Mapa da aventura</p>
