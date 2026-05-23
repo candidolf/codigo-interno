@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
+import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/brand/StatCard";
 import { TestStatusBadge } from "@/components/brand/TestStatusBadge";
 import { ShoppingBag, FileText, Users, User, Gift } from "lucide-react";
@@ -49,9 +50,9 @@ function Dashboard() {
             <GradientButton size="lg" asChild>
               <Link to="/comprar" search={{ destinatario: "eu" }} className="cursor-pointer"><User className="h-4 w-4" />Comprar pra mim</Link>
             </GradientButton>
-            <GradientButton size="lg" variant="outline" asChild>
+            <Button size="lg" variant="outline" asChild className="cursor-pointer">
               <Link to="/comprar" search={{ destinatario: "outro" }} className="cursor-pointer"><Gift className="h-4 w-4" />Comprar pra alguém</Link>
-            </GradientButton>
+            </Button>
           </div>
         </div>
 

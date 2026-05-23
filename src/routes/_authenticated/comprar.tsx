@@ -9,13 +9,22 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { createPurchase } from "@/lib/purchases.functions";
+import { assignSelf } from "@/lib/purchases.functions";
 
-export const Route = createFileRoute("/_authenticated/comprar")({ component: Comprar });
+export const Route = createFileRoute("/_authenticated/comprar")({
+  component: Comprar,
+  validateSearch: (search: Record<string, unknown>) => ({
+    destinatario: (search.destinatario === "outro" ? "outro" : "eu") as "eu" | "outro",
+  }),
+});
 
 function Comprar() {
   const navigate = useNavigate();
+  const { destinatario: initialDest } = Route.useSearch();
   const buy = useServerFn(createPurchase);
+  const assign = useServerFn(assignSelf);
   const [method, setMethod] = useState<"pix" | "card">("pix");
+  const [destinatario, setDestinatario] = useState<"eu" | "outro">(initialDest);
   const [sellerCode, setSellerCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +39,12 @@ function Comprar() {
         toast.success("Pagamento simulado aprovado", {
           description: "Mercado Pago ainda não configurado — compra liberada para teste.",
         });
-        navigate({ to: "/testes/$id/destinatario", params: { id: res.purchaseId } });
+        if (destinatario === "eu") {
+          await assign({ data: { purchaseId: res.purchaseId } });
+          navigate({ to: "/teste/$id/intro", params: { id: res.purchaseId } });
+        } else {
+          navigate({ to: "/testes/$id/destinatario", params: { id: res.purchaseId } });
+        }
       } else if (res.initPoint) {
         window.location.href = res.initPoint;
       } else {
