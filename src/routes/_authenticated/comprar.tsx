@@ -35,20 +35,20 @@ function Comprar() {
     setError(null);
     try {
       const res = await buy({ data: { paymentMethod: method, sellerCode: sellerCode || null } });
+      if (res.initPoint) {
+        window.location.href = res.initPoint;
+        return;
+      }
       if (res.simulated) {
         toast.success("Pagamento simulado aprovado", {
           description: "Mercado Pago ainda não configurado — compra liberada para teste.",
         });
-        if (destinatario === "eu") {
-          await assign({ data: { purchaseId: res.purchaseId } });
-          navigate({ to: "/teste/$id/intro", params: { id: res.purchaseId } });
-        } else {
-          navigate({ to: "/testes/$id/destinatario", params: { id: res.purchaseId } });
-        }
-      } else if (res.initPoint) {
-        window.location.href = res.initPoint;
+      }
+      if (destinatario === "eu") {
+        await assign({ data: { purchaseId: res.purchaseId } });
+        navigate({ to: "/teste/$id/intro", params: { id: res.purchaseId } });
       } else {
-        navigate({ to: "/comprar/retorno", search: { purchase: res.purchaseId } as any });
+        navigate({ to: "/testes/$id/destinatario", params: { id: res.purchaseId } });
       }
     } catch (err: any) {
       setError(err?.message ?? "Falha ao processar pagamento.");

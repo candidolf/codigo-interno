@@ -1,29 +1,43 @@
-## Diagnóstico
+## Problema
 
-O arquivo `supabase/migrations/005_invites.sql` foi gerado errado — ele contém o mesmo SQL do `004_payments.sql` (cria a tabela `payments` novamente, não cria `invites`). Por isso o `006_rls_policies.sql` falhou com `relation "public.invites" does not exist`.
+Depois da compra simulada o app navega para `/comprar/retorno?purchase=...`, rota que **não existe** no `routeTree.gen.ts`. Resultado: 404 → guard de auth redireciona para `/login?redirect=/comprar/retorno...` (exatamente o que aparece no print).
 
-Você não fez nada de errado. Os passos 001→004 rodaram bem; o 005 rodou sem efeito útil (a tabela `payments` já existia, então o `create table if not exists` foi no-op); o 006 quebrou na primeira referência a `invites`.
+A causa: em `src/routes/_authenticated/comprar.tsx` há um `else` fallback que navega para `/comprar/retorno` quando `res.simulated === false` e não há `initPoint`. Como o backend só marca `simulated: true` quando `MERCADO_PAGO_ACCESS_TOKEN` está vazio, qualquer outro cenário cai no fallback quebrado.
 
-## Plano de correção
+## Correção (apenas frontend, 1 arquivo)
 
-1. **Reescrever `supabase/migrations/005_invites.sql`** com o conteúdo correto da tabela `invites`, alinhado ao que `src/lib/invites.functions.ts` e o `006` esperam:
-   - `token text primary key`
-   - `purchase_id uuid → test_purchases(id) on delete cascade`
-   - `master_id uuid → auth.users(id)`
-   - `testando_name text`, `testando_email text`
-   - `consumed_by uuid → auth.users(id)`, `consumed_at timestamptz`
-   - `expires_at timestamptz not null default now() + interval '30 days'`
-   - `created_at timestamptz not null default now()`
-   - `alter table ... enable row level security`
-   - índice em `purchase_id` e em `master_id`
+Editar `src/routes/_authenticated/comprar.tsx → onSubmit`:
 
-2. **Nenhuma alteração nos outros arquivos.** O `006` já está correto e vai funcionar assim que `invites` existir.
+1. Remover o `else` que navega para `/comprar/retorno`.
+2. Tratar como sucesso sempre que `res.simulated === true` **ou** `res.status === "pago"` **ou** `!res.initPoint` (ou seja: sem checkout externo, libera direto).
+3. Nesse caso, aplicar a mesma lógica de destinatário já existente:
+   - `destinatario === "eu"` → `assignSelf` + `/teste/$id/intro`
+   - `destinatario === "outro"` → `/testes/$id/destinatario`
+4. Só redirecionar para `window.location.href = res.initPoint` quando `initPoint` existir de fato (Mercado Pago real).
 
-## O que você precisa rodar no Supabase SQL Editor
+Sem alteração de backend, migration, ou outras rotas.
 
-Apenas dois arquivos, nessa ordem:
+## Detalhe técnico
 
-1. `supabase/migrations/005_invites.sql` (versão corrigida)
-2. `supabase/migrations/006_rls_policies.sql` (re-rodar — é idempotente, usa `drop policy if exists`)
+```ts
+const goAfterPaid = async (purchaseId: string) => {
+  if (destinatario === "eu") {
+    await assign({ data: { purchaseId } });
+    navigate({ to: "/teste/$id/intro", params: { id: purchaseId } });
+  } else {
+    navigate({ to: "/testes/$id/destinatario", params: { id: purchaseId } });
+  }
+};
 
-Não precisa reverter nada dos arquivos 001–004 que já rodaram.
+const res = await buy({ data: { ... } });
+if (res.initPoint) {
+  window.location.href = res.initPoint;
+  return;
+}
+if (res.simulated) {
+  toast.success("Pagamento simulado aprovado", { description: "..." });
+}
+await goAfterPaid(res.purchaseId);
+```
+
+Posso seguir?
