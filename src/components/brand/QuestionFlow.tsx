@@ -32,7 +32,7 @@ export function QuestionFlow({
 
   const q = questions[idx];
   const isLast = idx === questions.length - 1;
-  const progress = Math.round(((idx + 1) / questions.length) * 100);
+  const progress = Math.round((idx / questions.length) * 100);
 
   const next = () => {
     if (!picked) return;
@@ -42,7 +42,7 @@ export function QuestionFlow({
     setShowOther(false);
     if (isLast) {
       completeRoom(testId, roomSlug);
-      navigate({ to: "/teste/$id/sala/$slug/concluida", params: { id: testId, slug: roomSlug } });
+      navigate({ to: "/teste/$id/sala-concluida/$slug", params: { id: testId, slug: roomSlug } });
     } else {
       setIdx((i) => i + 1);
     }
