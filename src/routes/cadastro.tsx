@@ -1,66 +1,50 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
+import { translateAuthError } from "@/lib/auth-errors";
 
 export const Route = createFileRoute("/cadastro")({ component: Cadastro });
 
-function formatDateInput(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 8);
-  const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
-  return parts.join("/");
-}
-
-function formatPhoneInput(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-}
-
-function parseBR(value: string): Date | null {
-  const m = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!m) return null;
-  const [, dd, mm, yyyy] = m;
-  const d = Number(dd), mo = Number(mm), y = Number(yyyy);
-  const date = new Date(y, mo - 1, d);
-  if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
-  if (y < 1900 || date > new Date()) return null;
-  return date;
-}
-
-function calcAge(date: Date) {
-  const now = new Date();
-  let age = now.getFullYear() - date.getFullYear();
-  const m = now.getMonth() - date.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < date.getDate())) age--;
-  return age;
-}
+function formatDateInput(v: string) { const d = v.replace(/\D/g, "").slice(0, 8); const p = [d.slice(0,2), d.slice(2,4), d.slice(4,8)].filter(Boolean); return p.join("/"); }
+function formatPhoneInput(v: string) { const d = v.replace(/\D/g, "").slice(0, 11); if (d.length <= 2) return d; if (d.length <= 7) return `(${d.slice(0,2)}) ${d.slice(2)}`; return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`; }
+function parseBR(v: string): Date | null { const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); if (!m) return null; const [,dd,mm,yyyy] = m; const d = new Date(+yyyy, +mm - 1, +dd); if (d.getFullYear() !== +yyyy || d.getMonth() !== +mm - 1 || d.getDate() !== +dd) return null; if (+yyyy < 1900 || d > new Date()) return null; return d; }
+function calcAge(d: Date) { const now = new Date(); let a = now.getFullYear() - d.getFullYear(); const m = now.getMonth() - d.getMonth(); if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--; return a; }
+function toISO(d: Date) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 
 function Cadastro() {
   const navigate = useNavigate();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const date = parseBR(birthDate);
-    if (!date) {
-      setError("Por favor, informe uma data de nascimento válida.");
-      return;
-    }
-    if (calcAge(date) < 18) {
-      setError(
-        "Para criar uma conta, é necessário ter 18 anos ou mais. Peça a um responsável maior de idade para criar a conta — depois ele poderá adicionar você como testando.",
-      );
-      return;
-    }
     setError(null);
-    navigate({ to: "/dashboard" });
+    if (!supabaseConfigured) { setError("Supabase ainda não configurado. Preencha o .env."); return; }
+    const date = parseBR(birthDate);
+    if (!date) { setError("Data de nascimento inválida."); return; }
+    if (calcAge(date) < 18) { setError("Para criar conta master é necessário ter 18 anos ou mais."); return; }
+    setLoading(true);
+    try {
+      const { error: err } = await supabase.auth.signUp({
+        email, password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: { full_name: fullName, phone, birth_date: toISO(date), role: "master" },
+        },
+      });
+      if (err) { setError(translateAuthError(err.message)); return; }
+      navigate({ to: "/dashboard" });
+    } finally { setLoading(false); }
   };
 
   return (
@@ -70,35 +54,14 @@ function Cadastro() {
         <h1 className="font-display text-3xl font-bold">Criar conta</h1>
         <p className="text-muted-foreground mt-2">Você será o <strong>master</strong> — quem compra e gerencia testes.</p>
         <form className="glass rounded-2xl p-6 mt-8 space-y-4" onSubmit={onSubmit}>
-          <div className="space-y-2"><Label>Nome completo</Label><Input placeholder="Seu nome" /></div>
-          <div className="space-y-2"><Label>E-mail</Label><Input type="email" placeholder="voce@email.com" /></div>
-          <div className="space-y-2">
-            <Label>Data de nascimento</Label>
-            <Input
-              inputMode="numeric"
-              placeholder="DD/MM/AAAA"
-              value={birthDate}
-              maxLength={10}
-              onChange={(e) => setBirthDate(formatDateInput(e.target.value))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Celular (whatsapp)</Label>
-            <Input
-              inputMode="numeric"
-              placeholder="(11) 99999-9999"
-              value={phone}
-              maxLength={16}
-              onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
-            />
-          </div>
-          <div className="space-y-2"><Label>Senha</Label><Input type="password" placeholder="••••••••" /></div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <GradientButton type="submit" className="w-full">Criar conta</GradientButton>
+          <div className="space-y-2"><Label>Nome completo</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Seu nome" required /></div>
+          <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" required /></div>
+          <div className="space-y-2"><Label>Data de nascimento</Label><Input inputMode="numeric" placeholder="DD/MM/AAAA" value={birthDate} maxLength={10} onChange={(e) => setBirthDate(formatDateInput(e.target.value))} required /></div>
+          <div className="space-y-2"><Label>Celular (whatsapp)</Label><Input inputMode="numeric" placeholder="(11) 99999-9999" value={phone} maxLength={16} onChange={(e) => setPhone(formatPhoneInput(e.target.value))} /></div>
+          <div className="space-y-2"><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} /></div>
+          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+          <GradientButton type="submit" className="w-full cursor-pointer" disabled={loading}>{loading ? "Criando..." : "Criar conta"}</GradientButton>
+          <p className="text-center text-sm text-muted-foreground">Já tem conta? <Link to="/login" className="underline cursor-pointer">Entrar</Link></p>
         </form>
       </main>
     </div>

@@ -1,33 +1,46 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
+import { translateAuthError } from "@/lib/auth-errors";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
 function Login() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!supabaseConfigured) { setError("Supabase ainda não configurado. Preencha o .env."); return; }
+    setLoading(true);
+    try {
+      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+      if (err) { setError(translateAuthError(err.message)); return; }
+      navigate({ to: "/dashboard" });
+    } finally { setLoading(false); }
+  };
+
   return (
     <div className="min-h-screen">
       <BrandHeader />
       <main className="container mx-auto px-6 py-16 max-w-md">
         <h1 className="font-display text-3xl font-bold text-center">Bem vindo</h1>
         <p className="text-muted-foreground mt-2 text-center">Entre com seu login</p>
-        <form className="glass rounded-2xl p-6 mt-8 space-y-4">
-          <div className="space-y-2">
-            <Label>E-mail</Label>
-            <Input type="email" placeholder="voce@email.com" />
-          </div>
-          <div className="space-y-2">
-            <Label>Senha</Label>
-            <Input type="password" placeholder="••••••••" />
-          </div>
-          <GradientButton className="w-full" asChild>
-            <Link to="/dashboard">Entrar</Link>
-          </GradientButton>
-          <p className="text-center text-sm text-muted-foreground">
-            Não tem conta? <Link to="/cadastro" className="text-foreground underline">Criar agora</Link>
-          </p>
+        <form className="glass rounded-2xl p-6 mt-8 space-y-4" onSubmit={onSubmit}>
+          <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" required /></div>
+          <div className="space-y-2"><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required /></div>
+          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+          <GradientButton type="submit" className="w-full cursor-pointer" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</GradientButton>
+          <p className="text-center text-sm text-muted-foreground">Não tem conta? <Link to="/cadastro" className="underline cursor-pointer">Criar conta</Link></p>
         </form>
       </main>
     </div>
