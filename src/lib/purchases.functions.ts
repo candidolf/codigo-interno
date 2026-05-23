@@ -104,3 +104,32 @@ export const assignSelf = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const getPurchaseTestando = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ purchaseId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: purchase, error } = await supabase
+      .from("test_purchases")
+      .select("id, testando_user_id, testando_name")
+      .eq("id", data.purchaseId)
+      .single();
+    if (error || !purchase) throw new Error(error?.message ?? "Compra não encontrada");
+
+    let birthDate: string | null = null;
+    if (purchase.testando_user_id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("birth_date")
+        .eq("id", purchase.testando_user_id)
+        .maybeSingle();
+      birthDate = profile?.birth_date ?? null;
+    }
+
+    return {
+      testandoUserId: purchase.testando_user_id,
+      testandoName: purchase.testando_name,
+      birthDate,
+    };
+  });

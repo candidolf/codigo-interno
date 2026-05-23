@@ -1,18 +1,42 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { RoomCard } from "@/components/brand/RoomCard";
 import { GradientButton } from "@/components/brand/GradientButton";
-import { rooms } from "@/data/mock";
+import { rooms, questions as allQuestions } from "@/data/mock";
+import { getPurchaseTestando } from "@/lib/purchases.functions";
+import { allRoomsCompleted, getRoomProgress, loadProgress, type ProgressState } from "@/lib/test-progress";
 
 export const Route = createFileRoute("/teste/$id/salas")({ component: Salas });
 
-const testandoAge = 11; // mock
-const progressBySlug: Record<string, number> = { alegria: 100, medo: 60, raiva: 0, descobertas: 0 };
+function ageFromBirth(birth: string | null): number {
+  if (!birth) return 18;
+  const d = new Date(birth);
+  if (isNaN(d.getTime())) return 18;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age;
+}
 
 function Salas() {
   const { id } = Route.useParams();
-  const eligible = rooms.filter((r) => testandoAge >= r.ageMin && testandoAge <= r.ageMax);
-  const allDone = eligible.every((r) => (progressBySlug[r.slug] ?? 0) === 100);
+  const fetchTestando = useServerFn(getPurchaseTestando);
+  const { data: testando, isLoading } = useQuery({
+    queryKey: ["testando", id],
+    queryFn: () => fetchTestando({ data: { purchaseId: id } }),
+  });
+
+  const [state, setState] = useState<ProgressState>(() => loadProgress(id));
+  useEffect(() => { setState(loadProgress(id)); }, [id]);
+
+  const age = testando ? ageFromBirth(testando.birthDate) : 18;
+  const eligible = rooms.filter((r) => age >= r.ageMin && age <= r.ageMax);
+  const startedRoom = state.startedRoom;
+  const allDone = allRoomsCompleted(state, eligible.map((r) => r.slug));
   return (
     <div className="min-h-screen">
       <BrandHeader />
@@ -28,11 +52,27 @@ function Salas() {
             </GradientButton>
           )}
         </div>
-        <div className="grid sm:grid-cols-2 gap-5 mt-8">
-          {eligible.map((r) => (
-            <RoomCard key={r.slug} room={r} testId={id} progress={progressBySlug[r.slug] ?? 0} />
-          ))}
-        </div>
+        {isLoading ? (
+          <p className="text-muted-foreground mt-8">Carregando...</p>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-5 mt-8">
+            {eligible.map((r) => {
+              const total = allQuestions.filter((q) => q.roomSlug === r.slug).length;
+              const progress = getRoomProgress(state, r.slug, total);
+              const locked = Boolean(startedRoom) && startedRoom !== r.slug && !state.rooms[r.slug]?.completedAt;
+              return (
+                <RoomCard
+                  key={r.slug}
+                  room={r}
+                  testId={id}
+                  progress={progress}
+                  locked={locked}
+                  lockedReason={locked ? "Termine a sala em andamento antes de iniciar outra." : undefined}
+                />
+              );
+            })}
+          </div>
+        )}
       </main>
     </div>
   );
