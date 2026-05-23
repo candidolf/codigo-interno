@@ -1,15 +1,31 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { QuestionFlow } from "@/components/brand/QuestionFlow";
 import { questions, rooms, themeStyle } from "@/data/mock";
 import { ArrowLeft } from "lucide-react";
+import { loadProgress, startRoom } from "@/lib/test-progress";
 
 export const Route = createFileRoute("/teste/$id/sala/$slug")({ component: Sala });
 
 function Sala() {
   const { id, slug } = Route.useParams();
+  const navigate = useNavigate();
   const room = rooms.find((r) => r.slug === slug);
   const qs = questions.filter((q) => q.roomSlug === slug);
+
+  useEffect(() => {
+    if (!room) return;
+    const state = loadProgress(id);
+    const started = state.startedRoom;
+    const thisCompleted = Boolean(state.rooms[slug]?.completedAt);
+    if (started && started !== slug && !thisCompleted) {
+      navigate({ to: "/teste/$id/salas", params: { id } });
+      return;
+    }
+    if (!thisCompleted) startRoom(id, slug);
+  }, [id, slug, room, navigate]);
+
   if (!room) return <div className="p-10">Sala não encontrada.</div>;
   const s = themeStyle(room.theme);
   const themeBg = { joy: "bg-joy", fear: "bg-fear", anger: "bg-anger", discovery: "bg-discovery" }[room.theme];
@@ -26,7 +42,7 @@ function Sala() {
           <h1 className={`font-display text-3xl font-bold mt-3 ${s.text}`}>{room.title}</h1>
           <p className="text-muted-foreground text-sm mt-1">{room.description}</p>
         </div>
-        <QuestionFlow questions={qs} testId={id} themeClass={themeBg} />
+        <QuestionFlow questions={qs} testId={id} themeClass={themeBg} roomSlug={slug} />
       </main>
     </div>
   );
