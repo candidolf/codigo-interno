@@ -6,13 +6,6 @@ import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
 
 type Role = "guest" | "master" | "admin" | "user";
 
-const homeByRole: Record<Role, string> = {
-  guest: "/",
-  master: "/dashboard",
-  user: "/dashboard",
-  admin: "/admin",
-};
-
 const navByRole: Record<Role, { to: string; label: string }[]> = {
   guest: [{ to: "/", label: "Início" }, { to: "/login", label: "Login" }],
   master: [
