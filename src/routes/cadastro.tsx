@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/cadastro")({ component: Cadastro });
 
@@ -25,6 +26,7 @@ function Cadastro() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +60,15 @@ function Cadastro() {
           <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" required /></div>
           <div className="space-y-2"><Label>Data de nascimento</Label><Input inputMode="numeric" placeholder="DD/MM/AAAA" value={birthDate} maxLength={10} onChange={(e) => setBirthDate(formatDateInput(e.target.value))} required /></div>
           <div className="space-y-2"><Label>Celular (whatsapp)</Label><Input inputMode="numeric" placeholder="(11) 99999-9999" value={phone} maxLength={16} onChange={(e) => setPhone(formatPhoneInput(e.target.value))} /></div>
-          <div className="space-y-2"><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} /></div>
+          <div className="space-y-2">
+            <Label>Senha</Label>
+            <div className="relative">
+              <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="pr-10" />
+              <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground cursor-pointer">
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <GradientButton type="submit" className="w-full cursor-pointer" disabled={loading}>{loading ? "Criando..." : "Criar conta"}</GradientButton>
           <p className="text-center text-sm text-muted-foreground">Já tem conta? <Link to="/login" className="underline cursor-pointer">Entrar</Link></p>

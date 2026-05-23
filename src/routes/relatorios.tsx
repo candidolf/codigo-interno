@@ -9,7 +9,7 @@ function Relatorios() {
   const done = purchases.filter((p) => p.status === "Concluído");
   return (
     <div className="min-h-screen">
-      <BrandHeader role="master" />
+      <BrandHeader />
       <main className="container mx-auto px-6 py-12">
         <h1 className="font-display text-4xl font-bold">Relatórios</h1>
         <div className="grid sm:grid-cols-2 gap-4 mt-8">

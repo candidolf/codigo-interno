@@ -13,7 +13,7 @@ function AdminCommissions() {
   const totalCommission = commissions.reduce((a, c) => a + c.gross * c.rate, 0);
   return (
     <div className="min-h-screen">
-      <BrandHeader role="admin" />
+      <BrandHeader />
       <main className="container mx-auto px-6 py-12">
         <h1 className="font-display text-4xl font-bold">Comissões de venda</h1>
         <p className="text-muted-foreground">Relatório por código de vendedor informado no checkout.</p>

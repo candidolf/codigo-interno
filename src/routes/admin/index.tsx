@@ -13,7 +13,7 @@ function AdminHome() {
   const revenue = sold * 29.9;
   return (
     <div className="min-h-screen">
-      <BrandHeader role="admin" />
+      <BrandHeader />
       <main className="container mx-auto px-6 py-12">
         <h1 className="font-display text-4xl font-bold">Painel admin</h1>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">

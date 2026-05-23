@@ -12,7 +12,7 @@ export function SalaForm({ room }: { room?: Room }) {
   const qs = room ? questions.filter((q) => q.roomSlug === room.slug) : [];
   return (
     <div className="min-h-screen">
-      <BrandHeader role="admin" />
+      <BrandHeader />
       <main className="container mx-auto px-6 py-12 max-w-3xl">
         <Link to="/admin/salas" className="text-sm text-muted-foreground hover:text-foreground">← Salas</Link>
         <h1 className="font-display text-4xl font-bold mt-2">{editing ? "Editar sala" : "Nova sala"}</h1>

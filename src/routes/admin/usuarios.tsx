@@ -11,7 +11,7 @@ function AdminUsers() {
   const list = adminUsers.filter((u) => filter === "all" || u.role === filter);
   return (
     <div className="min-h-screen">
-      <BrandHeader role="admin" />
+      <BrandHeader />
       <main className="container mx-auto px-6 py-12">
         <div className="flex justify-between items-end gap-4 flex-wrap">
           <div>
