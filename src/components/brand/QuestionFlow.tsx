@@ -1,17 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import type { Question } from "@/data/mock";
 import { GradientButton } from "./GradientButton";
 import { cn } from "@/lib/utils";
+import { completeRoom, loadProgress, saveAnswer } from "@/lib/test-progress";
 
 export function QuestionFlow({
   questions,
   testId,
   themeClass,
+  roomSlug,
 }: {
   questions: Question[];
   testId: string;
   themeClass: string;
+  roomSlug: string;
 }) {
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
@@ -19,16 +22,27 @@ export function QuestionFlow({
   const [showOther, setShowOther] = useState(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const state = loadProgress(testId);
+    const room = state.rooms[roomSlug];
+    if (!room) return;
+    const firstUnanswered = questions.findIndex((q) => !(q.id in room.answers));
+    if (firstUnanswered > 0) setIdx(firstUnanswered);
+  }, [testId, roomSlug, questions]);
+
   const q = questions[idx];
   const isLast = idx === questions.length - 1;
   const progress = Math.round(((idx + 1) / questions.length) * 100);
 
   const next = () => {
+    if (!picked) return;
+    saveAnswer(testId, roomSlug, q.id, picked, picked === "other" ? other : undefined);
     setPicked(null);
     setOther("");
     setShowOther(false);
     if (isLast) {
-      navigate({ to: "/teste/$id/salas", params: { id: testId } });
+      completeRoom(testId, roomSlug);
+      navigate({ to: "/teste/$id/sala/$slug/concluida", params: { id: testId, slug: roomSlug } });
     } else {
       setIdx((i) => i + 1);
     }
