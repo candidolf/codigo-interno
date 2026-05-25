@@ -27,6 +27,7 @@ import { Route as AuthenticatedAdminVendedoresRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminUsuariosRouteImport } from './routes/_authenticated/admin/usuarios'
 import { Route as AuthenticatedAdminSalasRouteImport } from './routes/_authenticated/admin/salas'
 import { Route as AuthenticatedAdminComissoesRouteImport } from './routes/_authenticated/admin/comissoes'
+import { Route as AuthenticatedAdminSalasIndexRouteImport } from './routes/_authenticated/admin/salas.index'
 import { Route as TesteIdSalaSlugRouteImport } from './routes/teste.$id.sala.$slug'
 import { Route as TesteIdSalaConcluidaSlugRouteImport } from './routes/teste.$id.sala-concluida.$slug'
 import { Route as AuthenticatedTestesIdDestinatarioRouteImport } from './routes/_authenticated/testes.$id.destinatario'
@@ -127,6 +128,12 @@ const AuthenticatedAdminComissoesRoute =
     path: '/comissoes',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminSalasIndexRoute =
+  AuthenticatedAdminSalasIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminSalasRoute,
+  } as any)
 const TesteIdSalaSlugRoute = TesteIdSalaSlugRouteImport.update({
   id: '/teste/$id/sala/$slug',
   path: '/teste/$id/sala/$slug',
@@ -194,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
+  '/admin/salas/': typeof AuthenticatedAdminSalasIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -205,7 +213,6 @@ export interface FileRoutesByTo {
   '/convite/$token': typeof ConviteTokenRoute
   '/relatorio/$id': typeof RelatorioIdRoute
   '/admin/comissoes': typeof AuthenticatedAdminComissoesRoute
-  '/admin/salas': typeof AuthenticatedAdminSalasRouteWithChildren
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/admin/vendedores': typeof AuthenticatedAdminVendedoresRouteWithChildren
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByTo {
   '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
+  '/admin/salas': typeof AuthenticatedAdminSalasIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -247,6 +255,7 @@ export interface FileRoutesById {
   '/_authenticated/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
+  '/_authenticated/admin/salas/': typeof AuthenticatedAdminSalasIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
+    | '/admin/salas/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -286,7 +296,6 @@ export interface FileRouteTypes {
     | '/convite/$token'
     | '/relatorio/$id'
     | '/admin/comissoes'
-    | '/admin/salas'
     | '/admin/usuarios'
     | '/admin/vendedores'
     | '/teste/$id/concluido'
@@ -300,6 +309,7 @@ export interface FileRouteTypes {
     | '/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
+    | '/admin/salas'
   id:
     | '__root__'
     | '/'
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/_authenticated/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
+    | '/_authenticated/admin/salas/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -472,6 +483,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminComissoesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/salas/': {
+      id: '/_authenticated/admin/salas/'
+      path: '/'
+      fullPath: '/admin/salas/'
+      preLoaderRoute: typeof AuthenticatedAdminSalasIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminSalasRoute
+    }
     '/teste/$id/sala/$slug': {
       id: '/teste/$id/sala/$slug'
       path: '/teste/$id/sala/$slug'
@@ -527,12 +545,14 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminSalasRouteChildren {
   AuthenticatedAdminSalasIdRoute: typeof AuthenticatedAdminSalasIdRoute
   AuthenticatedAdminSalasNovaRoute: typeof AuthenticatedAdminSalasNovaRoute
+  AuthenticatedAdminSalasIndexRoute: typeof AuthenticatedAdminSalasIndexRoute
 }
 
 const AuthenticatedAdminSalasRouteChildren: AuthenticatedAdminSalasRouteChildren =
   {
     AuthenticatedAdminSalasIdRoute: AuthenticatedAdminSalasIdRoute,
     AuthenticatedAdminSalasNovaRoute: AuthenticatedAdminSalasNovaRoute,
+    AuthenticatedAdminSalasIndexRoute: AuthenticatedAdminSalasIndexRoute,
   }
 
 const AuthenticatedAdminSalasRouteWithChildren =
