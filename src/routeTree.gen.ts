@@ -29,6 +29,7 @@ import { Route as TesteIdSalaSlugRouteImport } from './routes/teste.$id.sala.$sl
 import { Route as TesteIdSalaConcluidaSlugRouteImport } from './routes/teste.$id.sala-concluida.$slug'
 import { Route as AuthenticatedTestesIdDestinatarioRouteImport } from './routes/_authenticated/testes.$id.destinatario'
 import { Route as AuthenticatedAdminSalasNovaRouteImport } from './routes/_authenticated/admin/salas.nova'
+import { Route as AuthenticatedAdminSalasIdRouteImport } from './routes/_authenticated/admin/salas.$id'
 
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
@@ -133,6 +134,12 @@ const AuthenticatedAdminSalasNovaRoute =
     path: '/nova',
     getParentRoute: () => AuthenticatedAdminSalasRoute,
   } as any)
+const AuthenticatedAdminSalasIdRoute =
+  AuthenticatedAdminSalasIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedAdminSalasRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -150,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/admin/salas/$id': typeof AuthenticatedAdminSalasIdRoute
   '/admin/salas/nova': typeof AuthenticatedAdminSalasNovaRoute
   '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
@@ -170,6 +178,7 @@ export interface FileRoutesByTo {
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/admin/salas/$id': typeof AuthenticatedAdminSalasIdRoute
   '/admin/salas/nova': typeof AuthenticatedAdminSalasNovaRoute
   '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
@@ -193,6 +202,7 @@ export interface FileRoutesById {
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/admin/salas/$id': typeof AuthenticatedAdminSalasIdRoute
   '/_authenticated/admin/salas/nova': typeof AuthenticatedAdminSalasNovaRoute
   '/_authenticated/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
@@ -216,6 +226,7 @@ export interface FileRouteTypes {
     | '/teste/$id/intro'
     | '/teste/$id/salas'
     | '/admin/'
+    | '/admin/salas/$id'
     | '/admin/salas/nova'
     | '/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '/teste/$id/intro'
     | '/teste/$id/salas'
     | '/admin'
+    | '/admin/salas/$id'
     | '/admin/salas/nova'
     | '/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
@@ -258,6 +270,7 @@ export interface FileRouteTypes {
     | '/teste/$id/intro'
     | '/teste/$id/salas'
     | '/_authenticated/admin/'
+    | '/_authenticated/admin/salas/$id'
     | '/_authenticated/admin/salas/nova'
     | '/_authenticated/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
@@ -421,15 +434,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSalasNovaRouteImport
       parentRoute: typeof AuthenticatedAdminSalasRoute
     }
+    '/_authenticated/admin/salas/$id': {
+      id: '/_authenticated/admin/salas/$id'
+      path: '/$id'
+      fullPath: '/admin/salas/$id'
+      preLoaderRoute: typeof AuthenticatedAdminSalasIdRouteImport
+      parentRoute: typeof AuthenticatedAdminSalasRoute
+    }
   }
 }
 
 interface AuthenticatedAdminSalasRouteChildren {
+  AuthenticatedAdminSalasIdRoute: typeof AuthenticatedAdminSalasIdRoute
   AuthenticatedAdminSalasNovaRoute: typeof AuthenticatedAdminSalasNovaRoute
 }
 
 const AuthenticatedAdminSalasRouteChildren: AuthenticatedAdminSalasRouteChildren =
   {
+    AuthenticatedAdminSalasIdRoute: AuthenticatedAdminSalasIdRoute,
     AuthenticatedAdminSalasNovaRoute: AuthenticatedAdminSalasNovaRoute,
   }
 
