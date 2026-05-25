@@ -28,6 +28,7 @@ const navByRole: Record<Role, { to: string; label: string }[]> = {
   admin: [
     { to: "/admin", label: "Início" },
     { to: "/admin/salas", label: "Salas" },
+    { to: "/admin/vendedores", label: "Vendedores" },
     { to: "/admin/usuarios", label: "Usuários" },
     { to: "/admin/comissoes", label: "Comissões" },
   ],
