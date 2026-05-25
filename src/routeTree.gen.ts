@@ -14,19 +14,13 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as RelatorioIdRouteImport } from './routes/relatorio.$id'
 import { Route as ConviteTokenRouteImport } from './routes/convite.$token'
-import { Route as AdminUsuariosRouteImport } from './routes/admin/usuarios'
-import { Route as AdminSalasRouteImport } from './routes/admin/salas'
-import { Route as AdminComissoesRouteImport } from './routes/admin/comissoes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedComprarRouteImport } from './routes/_authenticated/comprar'
 import { Route as TesteIdSalasRouteImport } from './routes/teste.$id.salas'
 import { Route as TesteIdIntroRouteImport } from './routes/teste.$id.intro'
 import { Route as TesteIdConcluidoRouteImport } from './routes/teste.$id.concluido'
-import { Route as AdminSalasNovaRouteImport } from './routes/admin/salas.nova'
-import { Route as AdminSalasIdRouteImport } from './routes/admin/salas.$id'
 import { Route as TesteIdSalaSlugRouteImport } from './routes/teste.$id.sala.$slug'
 import { Route as TesteIdSalaConcluidaSlugRouteImport } from './routes/teste.$id.sala-concluida.$slug'
 import { Route as AuthenticatedTestesIdDestinatarioRouteImport } from './routes/_authenticated/testes.$id.destinatario'
@@ -55,11 +49,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const RelatorioIdRoute = RelatorioIdRouteImport.update({
   id: '/relatorio/$id',
   path: '/relatorio/$id',
@@ -68,21 +57,6 @@ const RelatorioIdRoute = RelatorioIdRouteImport.update({
 const ConviteTokenRoute = ConviteTokenRouteImport.update({
   id: '/convite/$token',
   path: '/convite/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
-  id: '/admin/usuarios',
-  path: '/admin/usuarios',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminSalasRoute = AdminSalasRouteImport.update({
-  id: '/admin/salas',
-  path: '/admin/salas',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminComissoesRoute = AdminComissoesRouteImport.update({
-  id: '/admin/comissoes',
-  path: '/admin/comissoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -110,16 +84,6 @@ const TesteIdConcluidoRoute = TesteIdConcluidoRouteImport.update({
   path: '/teste/$id/concluido',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminSalasNovaRoute = AdminSalasNovaRouteImport.update({
-  id: '/nova',
-  path: '/nova',
-  getParentRoute: () => AdminSalasRoute,
-} as any)
-const AdminSalasIdRoute = AdminSalasIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AdminSalasRoute,
-} as any)
 const TesteIdSalaSlugRoute = TesteIdSalaSlugRouteImport.update({
   id: '/teste/$id/sala/$slug',
   path: '/teste/$id/sala/$slug',
@@ -145,14 +109,8 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof RelatoriosRoute
   '/comprar': typeof AuthenticatedComprarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/admin/comissoes': typeof AdminComissoesRoute
-  '/admin/salas': typeof AdminSalasRouteWithChildren
-  '/admin/usuarios': typeof AdminUsuariosRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/relatorio/$id': typeof RelatorioIdRoute
-  '/admin/': typeof AdminIndexRoute
-  '/admin/salas/$id': typeof AdminSalasIdRoute
-  '/admin/salas/nova': typeof AdminSalasNovaRoute
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
@@ -167,14 +125,8 @@ export interface FileRoutesByTo {
   '/relatorios': typeof RelatoriosRoute
   '/comprar': typeof AuthenticatedComprarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/admin/comissoes': typeof AdminComissoesRoute
-  '/admin/salas': typeof AdminSalasRouteWithChildren
-  '/admin/usuarios': typeof AdminUsuariosRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/relatorio/$id': typeof RelatorioIdRoute
-  '/admin': typeof AdminIndexRoute
-  '/admin/salas/$id': typeof AdminSalasIdRoute
-  '/admin/salas/nova': typeof AdminSalasNovaRoute
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
@@ -191,14 +143,8 @@ export interface FileRoutesById {
   '/relatorios': typeof RelatoriosRoute
   '/_authenticated/comprar': typeof AuthenticatedComprarRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/admin/comissoes': typeof AdminComissoesRoute
-  '/admin/salas': typeof AdminSalasRouteWithChildren
-  '/admin/usuarios': typeof AdminUsuariosRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/relatorio/$id': typeof RelatorioIdRoute
-  '/admin/': typeof AdminIndexRoute
-  '/admin/salas/$id': typeof AdminSalasIdRoute
-  '/admin/salas/nova': typeof AdminSalasNovaRoute
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
@@ -215,14 +161,8 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/comprar'
     | '/dashboard'
-    | '/admin/comissoes'
-    | '/admin/salas'
-    | '/admin/usuarios'
     | '/convite/$token'
     | '/relatorio/$id'
-    | '/admin/'
-    | '/admin/salas/$id'
-    | '/admin/salas/nova'
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
@@ -237,14 +177,8 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/comprar'
     | '/dashboard'
-    | '/admin/comissoes'
-    | '/admin/salas'
-    | '/admin/usuarios'
     | '/convite/$token'
     | '/relatorio/$id'
-    | '/admin'
-    | '/admin/salas/$id'
-    | '/admin/salas/nova'
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
@@ -260,14 +194,8 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/_authenticated/comprar'
     | '/_authenticated/dashboard'
-    | '/admin/comissoes'
-    | '/admin/salas'
-    | '/admin/usuarios'
     | '/convite/$token'
     | '/relatorio/$id'
-    | '/admin/'
-    | '/admin/salas/$id'
-    | '/admin/salas/nova'
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
@@ -282,12 +210,8 @@ export interface RootRouteChildren {
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
   RelatoriosRoute: typeof RelatoriosRoute
-  AdminComissoesRoute: typeof AdminComissoesRoute
-  AdminSalasRoute: typeof AdminSalasRouteWithChildren
-  AdminUsuariosRoute: typeof AdminUsuariosRoute
   ConviteTokenRoute: typeof ConviteTokenRoute
   RelatorioIdRoute: typeof RelatorioIdRoute
-  AdminIndexRoute: typeof AdminIndexRoute
   TesteIdConcluidoRoute: typeof TesteIdConcluidoRoute
   TesteIdIntroRoute: typeof TesteIdIntroRoute
   TesteIdSalasRoute: typeof TesteIdSalasRoute
@@ -332,13 +256,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/': {
-      id: '/admin/'
-      path: '/admin'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/relatorio/$id': {
       id: '/relatorio/$id'
       path: '/relatorio/$id'
@@ -351,27 +268,6 @@ declare module '@tanstack/react-router' {
       path: '/convite/$token'
       fullPath: '/convite/$token'
       preLoaderRoute: typeof ConviteTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/usuarios': {
-      id: '/admin/usuarios'
-      path: '/admin/usuarios'
-      fullPath: '/admin/usuarios'
-      preLoaderRoute: typeof AdminUsuariosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/salas': {
-      id: '/admin/salas'
-      path: '/admin/salas'
-      fullPath: '/admin/salas'
-      preLoaderRoute: typeof AdminSalasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/comissoes': {
-      id: '/admin/comissoes'
-      path: '/admin/comissoes'
-      fullPath: '/admin/comissoes'
-      preLoaderRoute: typeof AdminComissoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/dashboard': {
@@ -408,20 +304,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/teste/$id/concluido'
       preLoaderRoute: typeof TesteIdConcluidoRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/admin/salas/nova': {
-      id: '/admin/salas/nova'
-      path: '/nova'
-      fullPath: '/admin/salas/nova'
-      preLoaderRoute: typeof AdminSalasNovaRouteImport
-      parentRoute: typeof AdminSalasRoute
-    }
-    '/admin/salas/$id': {
-      id: '/admin/salas/$id'
-      path: '/$id'
-      fullPath: '/admin/salas/$id'
-      preLoaderRoute: typeof AdminSalasIdRouteImport
-      parentRoute: typeof AdminSalasRoute
     }
     '/teste/$id/sala/$slug': {
       id: '/teste/$id/sala/$slug'
@@ -464,32 +346,14 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
-interface AdminSalasRouteChildren {
-  AdminSalasIdRoute: typeof AdminSalasIdRoute
-  AdminSalasNovaRoute: typeof AdminSalasNovaRoute
-}
-
-const AdminSalasRouteChildren: AdminSalasRouteChildren = {
-  AdminSalasIdRoute: AdminSalasIdRoute,
-  AdminSalasNovaRoute: AdminSalasNovaRoute,
-}
-
-const AdminSalasRouteWithChildren = AdminSalasRoute._addFileChildren(
-  AdminSalasRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
   RelatoriosRoute: RelatoriosRoute,
-  AdminComissoesRoute: AdminComissoesRoute,
-  AdminSalasRoute: AdminSalasRouteWithChildren,
-  AdminUsuariosRoute: AdminUsuariosRoute,
   ConviteTokenRoute: ConviteTokenRoute,
   RelatorioIdRoute: RelatorioIdRoute,
-  AdminIndexRoute: AdminIndexRoute,
   TesteIdConcluidoRoute: TesteIdConcluidoRoute,
   TesteIdIntroRoute: TesteIdIntroRoute,
   TesteIdSalasRoute: TesteIdSalasRoute,
@@ -499,3 +363,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
