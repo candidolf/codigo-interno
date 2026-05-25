@@ -18,6 +18,7 @@ import { Route as RelatorioIdRouteImport } from './routes/relatorio.$id'
 import { Route as ConviteTokenRouteImport } from './routes/convite.$token'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedComprarRouteImport } from './routes/_authenticated/comprar'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as TesteIdSalasRouteImport } from './routes/teste.$id.salas'
 import { Route as TesteIdIntroRouteImport } from './routes/teste.$id.intro'
 import { Route as TesteIdConcluidoRouteImport } from './routes/teste.$id.concluido'
@@ -69,6 +70,11 @@ const AuthenticatedComprarRoute = AuthenticatedComprarRouteImport.update({
   path: '/comprar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const TesteIdSalasRoute = TesteIdSalasRouteImport.update({
   id: '/teste/$id/salas',
   path: '/teste/$id/salas',
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/comprar': typeof AuthenticatedComprarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/convite/$token': typeof ConviteTokenRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/comprar': typeof AuthenticatedComprarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/convite/$token': typeof ConviteTokenRoute
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/comprar': typeof AuthenticatedComprarRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/convite/$token': typeof ConviteTokenRoute
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/relatorios'
+    | '/admin'
     | '/comprar'
     | '/dashboard'
     | '/convite/$token'
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/relatorios'
+    | '/admin'
     | '/comprar'
     | '/dashboard'
     | '/convite/$token'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/relatorios'
+    | '/_authenticated/admin'
     | '/_authenticated/comprar'
     | '/_authenticated/dashboard'
     | '/convite/$token'
@@ -284,6 +296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedComprarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/teste/$id/salas': {
       id: '/teste/$id/salas'
       path: '/teste/$id/salas'
@@ -330,12 +349,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedComprarRoute: typeof AuthenticatedComprarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedTestesIdDestinatarioRoute: typeof AuthenticatedTestesIdDestinatarioRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedComprarRoute: AuthenticatedComprarRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedTestesIdDestinatarioRoute:
@@ -363,3 +384,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
