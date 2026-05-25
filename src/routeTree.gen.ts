@@ -19,6 +19,7 @@ import { Route as ConviteTokenRouteImport } from './routes/convite.$token'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedComprarRouteImport } from './routes/_authenticated/comprar'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as TesteIdSalasRouteImport } from './routes/teste.$id.salas'
 import { Route as TesteIdIntroRouteImport } from './routes/teste.$id.intro'
 import { Route as TesteIdConcluidoRouteImport } from './routes/teste.$id.concluido'
@@ -75,6 +76,11 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const TesteIdSalasRoute = TesteIdSalasRouteImport.update({
   id: '/teste/$id/salas',
   path: '/teste/$id/salas',
@@ -113,7 +119,7 @@ export interface FileRoutesByFullPath {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
-  '/admin': typeof AuthenticatedAdminRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/comprar': typeof AuthenticatedComprarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/convite/$token': typeof ConviteTokenRoute
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
   '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
@@ -130,7 +137,6 @@ export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
-  '/admin': typeof AuthenticatedAdminRoute
   '/comprar': typeof AuthenticatedComprarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/convite/$token': typeof ConviteTokenRoute
@@ -138,6 +144,7 @@ export interface FileRoutesByTo {
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
   '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
@@ -149,7 +156,7 @@ export interface FileRoutesById {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/comprar': typeof AuthenticatedComprarRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/convite/$token': typeof ConviteTokenRoute
@@ -157,6 +164,7 @@ export interface FileRoutesById {
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
@@ -176,6 +184,7 @@ export interface FileRouteTypes {
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
+    | '/admin/'
     | '/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
@@ -185,7 +194,6 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/relatorios'
-    | '/admin'
     | '/comprar'
     | '/dashboard'
     | '/convite/$token'
@@ -193,6 +201,7 @@ export interface FileRouteTypes {
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
+    | '/admin'
     | '/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
@@ -211,6 +220,7 @@ export interface FileRouteTypes {
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
+    | '/_authenticated/admin/'
     | '/_authenticated/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
@@ -303,6 +313,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/teste/$id/salas': {
       id: '/teste/$id/salas'
       path: '/teste/$id/salas'
@@ -348,15 +365,26 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
 interface AuthenticatedRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedComprarRoute: typeof AuthenticatedComprarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedTestesIdDestinatarioRoute: typeof AuthenticatedTestesIdDestinatarioRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedComprarRoute: AuthenticatedComprarRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedTestesIdDestinatarioRoute:
