@@ -27,6 +27,7 @@ import { Route as AuthenticatedAdminVendedoresRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminUsuariosRouteImport } from './routes/_authenticated/admin/usuarios'
 import { Route as AuthenticatedAdminSalasRouteImport } from './routes/_authenticated/admin/salas'
 import { Route as AuthenticatedAdminComissoesRouteImport } from './routes/_authenticated/admin/comissoes'
+import { Route as AuthenticatedAdminVendedoresIndexRouteImport } from './routes/_authenticated/admin/vendedores.index'
 import { Route as AuthenticatedAdminSalasIndexRouteImport } from './routes/_authenticated/admin/salas.index'
 import { Route as TesteIdSalaSlugRouteImport } from './routes/teste.$id.sala.$slug'
 import { Route as TesteIdSalaConcluidaSlugRouteImport } from './routes/teste.$id.sala-concluida.$slug'
@@ -128,6 +129,12 @@ const AuthenticatedAdminComissoesRoute =
     path: '/comissoes',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminVendedoresIndexRoute =
+  AuthenticatedAdminVendedoresIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminVendedoresRoute,
+  } as any)
 const AuthenticatedAdminSalasIndexRoute =
   AuthenticatedAdminSalasIndexRouteImport.update({
     id: '/',
@@ -202,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
   '/admin/salas/': typeof AuthenticatedAdminSalasIndexRoute
+  '/admin/vendedores/': typeof AuthenticatedAdminVendedoresIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -214,7 +222,6 @@ export interface FileRoutesByTo {
   '/relatorio/$id': typeof RelatorioIdRoute
   '/admin/comissoes': typeof AuthenticatedAdminComissoesRoute
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
-  '/admin/vendedores': typeof AuthenticatedAdminVendedoresRouteWithChildren
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
@@ -227,6 +234,7 @@ export interface FileRoutesByTo {
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
   '/admin/salas': typeof AuthenticatedAdminSalasIndexRoute
+  '/admin/vendedores': typeof AuthenticatedAdminVendedoresIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -256,6 +264,7 @@ export interface FileRoutesById {
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
   '/_authenticated/admin/salas/': typeof AuthenticatedAdminSalasIndexRoute
+  '/_authenticated/admin/vendedores/': typeof AuthenticatedAdminVendedoresIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -285,6 +294,7 @@ export interface FileRouteTypes {
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
     | '/admin/salas/'
+    | '/admin/vendedores/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -297,7 +307,6 @@ export interface FileRouteTypes {
     | '/relatorio/$id'
     | '/admin/comissoes'
     | '/admin/usuarios'
-    | '/admin/vendedores'
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
@@ -310,6 +319,7 @@ export interface FileRouteTypes {
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
     | '/admin/salas'
+    | '/admin/vendedores'
   id:
     | '__root__'
     | '/'
@@ -338,6 +348,7 @@ export interface FileRouteTypes {
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
     | '/_authenticated/admin/salas/'
+    | '/_authenticated/admin/vendedores/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -483,6 +494,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminComissoesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/vendedores/': {
+      id: '/_authenticated/admin/vendedores/'
+      path: '/'
+      fullPath: '/admin/vendedores/'
+      preLoaderRoute: typeof AuthenticatedAdminVendedoresIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminVendedoresRoute
+    }
     '/_authenticated/admin/salas/': {
       id: '/_authenticated/admin/salas/'
       path: '/'
@@ -563,6 +581,7 @@ const AuthenticatedAdminSalasRouteWithChildren =
 interface AuthenticatedAdminVendedoresRouteChildren {
   AuthenticatedAdminVendedoresCodeRoute: typeof AuthenticatedAdminVendedoresCodeRoute
   AuthenticatedAdminVendedoresNovoRoute: typeof AuthenticatedAdminVendedoresNovoRoute
+  AuthenticatedAdminVendedoresIndexRoute: typeof AuthenticatedAdminVendedoresIndexRoute
 }
 
 const AuthenticatedAdminVendedoresRouteChildren: AuthenticatedAdminVendedoresRouteChildren =
@@ -571,6 +590,8 @@ const AuthenticatedAdminVendedoresRouteChildren: AuthenticatedAdminVendedoresRou
       AuthenticatedAdminVendedoresCodeRoute,
     AuthenticatedAdminVendedoresNovoRoute:
       AuthenticatedAdminVendedoresNovoRoute,
+    AuthenticatedAdminVendedoresIndexRoute:
+      AuthenticatedAdminVendedoresIndexRoute,
   }
 
 const AuthenticatedAdminVendedoresRouteWithChildren =
