@@ -28,6 +28,7 @@ import { Route as AuthenticatedAdminSalasRouteImport } from './routes/_authentic
 import { Route as TesteIdSalaSlugRouteImport } from './routes/teste.$id.sala.$slug'
 import { Route as TesteIdSalaConcluidaSlugRouteImport } from './routes/teste.$id.sala-concluida.$slug'
 import { Route as AuthenticatedTestesIdDestinatarioRouteImport } from './routes/_authenticated/testes.$id.destinatario'
+import { Route as AuthenticatedAdminSalasNovaRouteImport } from './routes/_authenticated/admin/salas.nova'
 
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
@@ -126,6 +127,12 @@ const AuthenticatedTestesIdDestinatarioRoute =
     path: '/testes/$id/destinatario',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminSalasNovaRoute =
+  AuthenticatedAdminSalasNovaRouteImport.update({
+    id: '/nova',
+    path: '/nova',
+    getParentRoute: () => AuthenticatedAdminSalasRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -137,12 +144,13 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/relatorio/$id': typeof RelatorioIdRoute
-  '/admin/salas': typeof AuthenticatedAdminSalasRoute
+  '/admin/salas': typeof AuthenticatedAdminSalasRouteWithChildren
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/admin/salas/nova': typeof AuthenticatedAdminSalasNovaRoute
   '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
@@ -156,12 +164,13 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/relatorio/$id': typeof RelatorioIdRoute
-  '/admin/salas': typeof AuthenticatedAdminSalasRoute
+  '/admin/salas': typeof AuthenticatedAdminSalasRouteWithChildren
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/admin/salas/nova': typeof AuthenticatedAdminSalasNovaRoute
   '/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
@@ -178,12 +187,13 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/relatorio/$id': typeof RelatorioIdRoute
-  '/_authenticated/admin/salas': typeof AuthenticatedAdminSalasRoute
+  '/_authenticated/admin/salas': typeof AuthenticatedAdminSalasRouteWithChildren
   '/_authenticated/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/admin/salas/nova': typeof AuthenticatedAdminSalasNovaRoute
   '/_authenticated/testes/$id/destinatario': typeof AuthenticatedTestesIdDestinatarioRoute
   '/teste/$id/sala-concluida/$slug': typeof TesteIdSalaConcluidaSlugRoute
   '/teste/$id/sala/$slug': typeof TesteIdSalaSlugRoute
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/teste/$id/intro'
     | '/teste/$id/salas'
     | '/admin/'
+    | '/admin/salas/nova'
     | '/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/teste/$id/intro'
     | '/teste/$id/salas'
     | '/admin'
+    | '/admin/salas/nova'
     | '/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
@@ -246,6 +258,7 @@ export interface FileRouteTypes {
     | '/teste/$id/intro'
     | '/teste/$id/salas'
     | '/_authenticated/admin/'
+    | '/_authenticated/admin/salas/nova'
     | '/_authenticated/testes/$id/destinatario'
     | '/teste/$id/sala-concluida/$slug'
     | '/teste/$id/sala/$slug'
@@ -401,17 +414,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTestesIdDestinatarioRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/salas/nova': {
+      id: '/_authenticated/admin/salas/nova'
+      path: '/nova'
+      fullPath: '/admin/salas/nova'
+      preLoaderRoute: typeof AuthenticatedAdminSalasNovaRouteImport
+      parentRoute: typeof AuthenticatedAdminSalasRoute
+    }
   }
 }
 
+interface AuthenticatedAdminSalasRouteChildren {
+  AuthenticatedAdminSalasNovaRoute: typeof AuthenticatedAdminSalasNovaRoute
+}
+
+const AuthenticatedAdminSalasRouteChildren: AuthenticatedAdminSalasRouteChildren =
+  {
+    AuthenticatedAdminSalasNovaRoute: AuthenticatedAdminSalasNovaRoute,
+  }
+
+const AuthenticatedAdminSalasRouteWithChildren =
+  AuthenticatedAdminSalasRoute._addFileChildren(
+    AuthenticatedAdminSalasRouteChildren,
+  )
+
 interface AuthenticatedAdminRouteChildren {
-  AuthenticatedAdminSalasRoute: typeof AuthenticatedAdminSalasRoute
+  AuthenticatedAdminSalasRoute: typeof AuthenticatedAdminSalasRouteWithChildren
   AuthenticatedAdminUsuariosRoute: typeof AuthenticatedAdminUsuariosRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
-  AuthenticatedAdminSalasRoute: AuthenticatedAdminSalasRoute,
+  AuthenticatedAdminSalasRoute: AuthenticatedAdminSalasRouteWithChildren,
   AuthenticatedAdminUsuariosRoute: AuthenticatedAdminUsuariosRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
@@ -455,3 +489,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
