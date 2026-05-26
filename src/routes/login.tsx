@@ -36,7 +36,18 @@ function Login() {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) { setError(translateAuthError(err.message)); return; }
       await qc.invalidateQueries({ queryKey: ["auth", "me"] });
-      navigate({ to: (search.redirect as any) ?? "/dashboard" });
+      // Determinar destino conforme role
+      let dest: string = (search.redirect as string) ?? "";
+      if (!dest) {
+        try {
+          const { getCurrentUser } = await import("@/lib/auth.functions");
+          const me = await getCurrentUser();
+          dest = me?.isAdmin ? "/admin" : "/dashboard";
+        } catch {
+          dest = "/dashboard";
+        }
+      }
+      navigate({ to: dest as any });
     } finally { setLoading(false); }
   };
 
