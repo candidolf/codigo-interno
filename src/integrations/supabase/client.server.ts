@@ -2,11 +2,31 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getCookies, setCookie } from "@tanstack/react-start/server";
 
-function env(name: string, fallback?: string): string {
-  const v = process.env[name] ?? fallback;
-  if (!v) throw new Error(`Missing env: ${name}`);
+function readEnv(...names: string[]): string | undefined {
+  for (const n of names) {
+    const v = process.env[n];
+    if (v) return v;
+  }
+  return undefined;
+}
+
+function requireEnv(...names: string[]): string {
+  const v = readEnv(...names);
+  if (!v) throw new Error(`Missing env: ${names.join(" / ")}`);
   return v;
 }
+
+const SUPABASE_URL = () =>
+  requireEnv("EXT_SUPABASE_URL", "SUPABASE_URL", "VITE_SUPABASE_URL");
+const SUPABASE_ANON_KEY = () =>
+  requireEnv(
+    "EXT_SUPABASE_PUBLISHABLE_KEY",
+    "SUPABASE_PUBLISHABLE_KEY",
+    "VITE_SUPABASE_PUBLISHABLE_KEY",
+    "EXT_SUPABASE_ANON_KEY",
+    "SUPABASE_ANON_KEY",
+    "VITE_SUPABASE_ANON_KEY",
+  );
 
 /**
  * Server-side Supabase client scoped to the current request's user.
@@ -14,13 +34,7 @@ function env(name: string, fallback?: string): string {
  * RLS applies as that user.
  */
 export function createServerSupabase(): SupabaseClient {
-  const url = env("EXT_SUPABASE_URL");
-  const anonKey =
-    process.env.EXT_SUPABASE_PUBLISHABLE_KEY ??
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!anonKey) throw new Error("Missing env: EXT_SUPABASE_PUBLISHABLE_KEY / VITE_SUPABASE_PUBLISHABLE_KEY");
-
-  return createServerClient(url, anonKey, {
+  return createServerClient(SUPABASE_URL(), SUPABASE_ANON_KEY(), {
     cookies: {
       getAll() {
         const all = getCookies() ?? {};
@@ -43,9 +57,18 @@ export function createServerSupabase(): SupabaseClient {
 
 /**
  * Admin client (service role). RLS bypassed. Server-only.
+ * Lazily constructed — only throws if used without a service role key.
  */
-export const supabaseAdmin: SupabaseClient = createClient(
-  env("EXT_SUPABASE_URL"),
-  env("EXT_SUPABASE_SERVICE_ROLE_KEY"),
-  { auth: { autoRefreshToken: false, persistSession: false } },
-);
+let _admin: SupabaseClient | null = null;
+export function getSupabaseAdmin(): SupabaseClient {
+  if (_admin) return _admin;
+  const url = SUPABASE_URL();
+  const key = requireEnv(
+    "EXT_SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+  );
+  _admin = createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  return _admin;
+}
