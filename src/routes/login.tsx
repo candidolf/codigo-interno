@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Input } from "@/components/ui/input";
@@ -8,14 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
-import { getSessionHome } from "@/lib/session.functions";
 import { Eye, EyeOff } from "lucide-react";
 
-export const Route = createFileRoute("/login")({ component: Login });
+export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
+  component: Login,
+});
 
 function Login() {
   const navigate = useNavigate();
-  const fetchHome = useServerFn(getSessionHome);
+  const search = Route.useSearch();
+  const qc = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,13 +35,22 @@ function Login() {
     try {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) { setError(translateAuthError(err.message)); return; }
-      try {
-        const info = await fetchHome();
-        navigate({ to: info.home });
-      } catch {
-        navigate({ to: "/dashboard" });
-      }
+      await qc.invalidateQueries({ queryKey: ["auth", "me"] });
+      navigate({ to: (search.redirect as any) ?? "/dashboard" });
     } finally { setLoading(false); }
+  };
+
+  const onGoogle = async () => {
+    if (!supabaseConfigured) return;
+    setError(null);
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: typeof window !== "undefined"
+          ? `${window.location.origin}/login`
+          : undefined,
+      },
+    });
   };
 
   return (
@@ -58,6 +72,9 @@ function Login() {
           </div>
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <GradientButton type="submit" className="w-full cursor-pointer" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</GradientButton>
+          <button type="button" onClick={onGoogle} className="w-full rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent cursor-pointer">
+            Entrar com Google
+          </button>
           <p className="text-center text-sm text-muted-foreground">Não tem conta? <Link to="/cadastro" className="underline cursor-pointer">Criar conta</Link></p>
         </form>
       </main>

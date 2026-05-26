@@ -1,8 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import logoFull from "@/assets/logo-full.png";
 import { Button } from "@/components/ui/button";
-import { useCurrentRole } from "@/hooks/use-current-role";
-import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
 type Role = "guest" | "master" | "admin" | "user";
 
@@ -35,14 +34,13 @@ const navByRole: Record<Role, { to: string; label: string }[]> = {
 };
 
 export function BrandHeader() {
-  const { role, loading } = useCurrentRole();
+  const { isAuthenticated, isAdmin, loading, signOut } = useAuth();
   const navigate = useNavigate();
-  // Enquanto o papel carrega, se houver sessão ativa não devemos mostrar o menu de visitante
-  // (que aponta "Início" para "/"). Renderizamos um menu vazio até saber o papel.
+  const role: Role = !isAuthenticated ? "guest" : isAdmin ? "admin" : "master";
   const items = loading ? [] : navByRole[role];
 
   const onLogout = async () => {
-    if (supabaseConfigured) await supabase.auth.signOut();
+    await signOut();
     navigate({ to: "/" });
   };
 

@@ -1,16 +1,13 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
-import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
+import { getCurrentUser } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
-    if (!supabaseConfigured) {
+    const me = await getCurrentUser();
+    if (!me) {
       throw redirect({ to: "/login", search: { redirect: location.href } as any });
     }
-    // Usar getSession (sem rede) para evitar race com refresh de token.
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) {
-      throw redirect({ to: "/login", search: { redirect: location.href } as any });
-    }
+    return { me };
   },
   component: () => <Outlet />,
 });

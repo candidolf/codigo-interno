@@ -1,33 +1,18 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-const url =
-  (import.meta as any).env?.VITE_SUPABASE_URL ??
-  (typeof process !== "undefined" ? process.env.VITE_SUPABASE_URL : undefined);
-const key =
-  (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY ??
-  (typeof process !== "undefined" ? process.env.VITE_SUPABASE_PUBLISHABLE_KEY : undefined);
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
 export const supabaseConfigured = Boolean(url && key);
 
 function makeStub(): SupabaseClient {
   const err = new Error(
-    "Supabase ainda não configurado. Preencha VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no .env.",
+    "Supabase não configurado. Preencha VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.",
   );
-  const handler: ProxyHandler<any> = {
-    get() {
-      throw err;
-    },
-  };
-  return new Proxy({}, handler) as SupabaseClient;
+  return new Proxy({}, { get() { throw err; } }) as SupabaseClient;
 }
 
 export const supabase: SupabaseClient = supabaseConfigured
-  ? createClient(url as string, key as string, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storageKey: "ci-auth",
-      },
-    })
+  ? (createBrowserClient(url!, key!) as SupabaseClient)
   : makeStub();
