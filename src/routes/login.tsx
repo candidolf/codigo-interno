@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Input } from "@/components/ui/input";
@@ -7,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
 import { translateAuthError } from "@/lib/auth-errors";
+import { getSessionHome } from "@/lib/session.functions";
 import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
 function Login() {
   const navigate = useNavigate();
+  const fetchHome = useServerFn(getSessionHome);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +30,12 @@ function Login() {
     try {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) { setError(translateAuthError(err.message)); return; }
-      navigate({ to: "/dashboard" });
+      try {
+        const info = await fetchHome();
+        navigate({ to: info.home });
+      } catch {
+        navigate({ to: "/dashboard" });
+      }
     } finally { setLoading(false); }
   };
 
