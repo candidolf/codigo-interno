@@ -1,36 +1,22 @@
 import { createMiddleware } from "@tanstack/react-start";
-import { getRequestHeader } from "@tanstack/react-start/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerSupabase, supabaseAdmin } from "./client.server";
 
+/**
+ * Middleware for server fns that require an authenticated user.
+ * Reads the session from Supabase cookies (set by @supabase/ssr).
+ * Re-validates the JWT with the Auth server via getUser().
+ */
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
-    const authHeader = getRequestHeader("authorization") ?? getRequestHeader("Authorization");
-    if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
-      throw new Error("Unauthorized: No authorization header provided");
-    }
-    const token = authHeader.slice(7);
-
-    const url = process.env.EXT_SUPABASE_URL!;
-    const serviceKey = process.env.EXT_SUPABASE_SERVICE_ROLE_KEY!;
-
-    const admin = createClient(url, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
-    const { data, error } = await admin.auth.getUser(token);
+    const supabase = createServerSupabase();
+    const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error("Unauthorized");
     }
-
-    const supabase = createClient(url, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-
     return next({
       context: {
         supabase,
-        admin,
+        admin: supabaseAdmin,
         userId: data.user.id,
         userEmail: data.user.email ?? null,
       },
