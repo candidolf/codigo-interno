@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { getSupabaseAdmin } from "@/integrations/supabase/client.server";
+const supabaseAdmin = new Proxy({}, {
+  get(_t, prop) {
+    // @ts-expect-error dynamic forward
+    return getSupabaseAdmin()[prop];
+  },
+}) as ReturnType<typeof getSupabaseAdmin>;
 
 function genToken(len = 24) {
   const bytes = new Uint8Array(len);
