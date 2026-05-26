@@ -1,45 +1,94 @@
-## Diagnóstico
 
-O comportamento atual tem dois pontos frágeis:
+# Plano: Reset completo do Auth (Supabase SSR + cookies)
 
-1. O login sempre faz `navigate({ to: "/dashboard" })`, então mesmo uma conta admin é enviada primeiro para o dashboard.
-2. A validação de admin ainda depende de consulta client-side em `user_roles`. No snapshot de rede do preview, essa consulta retornou `[]` para o usuário logado (`006cfa39-1392-4507-a393-15ada79b848b`), então o app não consegue confirmar admin de forma confiável no navegador.
+Vamos descartar toda a camada de auth atual e reimplementar seguindo o padrão oficial do Supabase SSR (`@supabase/ssr`), adaptado para TanStack Start. A sessão passa a viver em cookies httpOnly lidos no servidor — fim das corridas client/server, fim do redirect-loop para `/login`.
 
-## Plano de correção definitiva
+## O que será removido
 
-1. **Criar uma função central de sessão/rota pós-login**
-   - Adicionar uma server function autenticada, por exemplo `getSessionHome`, que recebe o token do usuário via middleware já existente.
-   - No servidor, validar o usuário e consultar `user_roles` com acesso seguro do backend.
-   - Retornar a rota correta:
-     - `admin` → `/admin`
-     - `master` ou `user` → `/dashboard`
-     - sem papel → `/dashboard` com fallback controlado.
+Arquivos descartados (substituídos):
+- `src/integrations/supabase/client.ts`
+- `src/integrations/supabase/client.server.ts`
+- `src/integrations/supabase/auth-middleware.ts`
+- `src/integrations/supabase/auth-attacher.ts`
+- `src/hooks/use-auth.ts`
+- `src/hooks/use-current-role.ts`
+- `src/lib/session.functions.ts`
+- `src/routes/_authenticated.tsx`
+- `src/routes/_authenticated/admin.tsx` (componente AdminGate)
+- `src/routes/login.tsx`
 
-2. **Corrigir o login**
-   - Depois de `signInWithPassword`, chamar essa função de sessão/rota.
-   - Redirecionar admin diretamente para `/admin`, não para `/dashboard`.
-   - Manter suporte a `redirect` na URL, mas só usar se for compatível com o papel do usuário; por exemplo, admin pode ir para `/admin/...`, usuário comum não.
-   - Mostrar erro claro se a sessão entrou mas a validação de rota falhou, sem travar.
+Mantido sem alterações: tabelas (`profiles`, `user_roles`), migrations, RLS, função `has_role`, todas as telas de negócio (admin/vendedores, salas, dashboard, etc.).
 
-3. **Trocar o AdminGate para validação server-side**
-   - Remover a decisão de admin baseada apenas em `supabase.from("user_roles")` no cliente.
-   - Usar a mesma server function para confirmar admin.
-   - Se for admin, renderiza o admin; se não for, mostra “Acesso restrito” ou manda para `/dashboard` sem cair no login.
-   - Evitar cache positivo amplo em `sessionStorage` que possa mascarar mudança de papel; se mantiver cache, será por usuário e curto/só como otimização.
+## O que será criado
 
-4. **Reutilizar o mesmo papel no menu**
-   - Ajustar `useCurrentRole` para poder usar a validação central ou pelo menos não contradizer o AdminGate.
-   - Assim o menu mostra links de admin apenas quando o backend confirmou admin.
+### 1. Camada Supabase (3 clients)
+- `src/integrations/supabase/client.browser.ts` — `createBrowserClient` do `@supabase/ssr`. Único client usado em componentes React.
+- `src/integrations/supabase/client.server.ts` — duas factories server-only:
+  - `createServerSupabase()` — `createServerClient` lendo/escrevendo cookies via `@tanstack/react-start/server` (`getCookie`/`setCookie`). RLS como usuário logado.
+  - `supabaseAdmin` — service role, RLS bypass, só para operações administrativas.
 
-5. **Blindar o dashboard contra admin indevido**
-   - Se um admin cair em `/dashboard` por link manual ou fallback, redirecionar para `/admin` após confirmar o papel.
-   - Isso elimina o loop “login → dashboard” para admins.
+### 2. Middleware de sessão
+- `src/integrations/supabase/session-middleware.ts` — `createMiddleware` global que roda em todo server fn, chama `supabase.auth.getUser()` (revalida token) e injeta `{ supabase, user }` no `context`. Substitui `auth-middleware` e `auth-attacher`.
+- Registrado em `src/start.ts` como `requestMiddleware` global.
 
-6. **Verificação no preview**
-   - Testar fluxo: logout/login → admin deve abrir `/admin`.
-   - Abrir `/admin/vendedores` e `/admin/salas` sem voltar para login.
-   - Confirmar pelo Network que a checagem de role não retorna mais `[]` como fonte da decisão final.
+### 3. Server functions de auth
+- `src/lib/auth.functions.ts`:
+  - `signInWithPassword({ email, password })` — chama `supabase.auth.signInWithPassword`, cookies são setados pelo middleware SSR.
+  - `signInWithGoogle()` — retorna URL OAuth do broker Lovable (`lovable.auth.signInWithOAuth("google")` client-side; server fn só finaliza).
+  - `signOut()` — limpa cookies.
+  - `getCurrentUser()` — retorna `{ user, roles, isAdmin }` ou `null`. Usa `supabaseAdmin` para ler `user_roles` (evita problemas de RLS).
 
-## Observação importante
+### 4. Hook único de auth
+- `src/hooks/use-auth.ts` — React Query wrapping `getCurrentUser()` server fn. Expõe `{ user, isAdmin, roles, isLoading, signOut }`. Invalida no `onAuthStateChange` do browser client.
 
-Se o banco realmente não tiver nenhum registro `admin` para o usuário logado, a correção de código vai passar a mostrar uma mensagem clara de “conta sem papel admin”, em vez de travar ou mandar para login. Nesse caso, será necessário inserir/ajustar o papel desse usuário no Supabase externo.
+### 5. Guards de rota
+- `src/routes/_authenticated.tsx` — `beforeLoad` chama `getCurrentUser()`; se `null`, `throw redirect({ to: "/login", search: { redirect: location.href }})`. Sem `useEffect`, sem `sessionStorage`, sem AdminGate em componente.
+- `src/routes/_authenticated/admin.tsx` — `beforeLoad` reusa `getCurrentUser()`; se `!isAdmin`, redireciona para `/dashboard`. Componente vira layout simples com `<Outlet/>`.
+
+### 6. Telas
+- `src/routes/login.tsx` — form email/senha + botão Google. Após sucesso: `navigate({ to: search.redirect ?? "/dashboard" })`. Sem lógica de role.
+- Menu/Sidebar (onde existir): mostra link "/admin" só quando `useAuth().isAdmin === true`.
+
+### 7. OAuth Google
+- Callback: usar `/login` como redirect URI; `@supabase/ssr` detecta o `code` na query e troca por sessão via `exchangeCodeForSession()` em `beforeLoad` do `login.tsx`.
+- Provider Google deve estar habilitado no Supabase (usuário confirma).
+
+## Fluxo final
+
+```text
+Browser                          Server fn                    Supabase
+  │                                  │                            │
+  │ signIn(email,pw) ───────────────▶│                            │
+  │                                  │ signInWithPassword ───────▶│
+  │                                  │◀───────────── session ─────│
+  │◀──── Set-Cookie sb-* (httpOnly) ─│                            │
+  │                                  │                            │
+  │ getCurrentUser() ───────────────▶│                            │
+  │                                  │ getUser() (revalida) ─────▶│
+  │                                  │ select user_roles (admin) ▶│
+  │◀──── {user, isAdmin, roles} ─────│                            │
+```
+
+## Verificação
+
+1. Login email/senha → cookies `sb-*` setados → `/dashboard`.
+2. Acessar `/admin` como user comum → redirect para `/dashboard`.
+3. Acessar `/admin` como admin → entra; cria/edita vendedor sem voltar para `/login`.
+4. F5 em qualquer rota protegida → mantém sessão (cookies persistem).
+5. Logout → cookies limpos → redirect `/login`.
+6. F12 → sem erros no console na tela de login.
+
+## Pontos técnicos importantes
+
+- `@supabase/ssr` precisa ser instalado (`bun add @supabase/ssr`).
+- Cookies são setados pelo server (httpOnly) — o browser client lê apenas via `getSession()` para `onAuthStateChange`, mas a fonte de verdade é o server.
+- `getCurrentUser` sempre usa `getUser()` (revalida com Auth server), nunca `getSession()` para decisões de autorização.
+- Roles lidas com `supabaseAdmin` no server fn — elimina o problema de `user_roles` retornar `[]` por RLS.
+- Single source of truth: o React Query do `useAuth` é invalidado pelo listener `onAuthStateChange` registrado uma vez no `__root.tsx`.
+
+## Fora do escopo
+
+- Não mexer em migrations nem RLS existentes.
+- Não tocar telas de negócio (vendedores, salas, dashboard, relatórios).
+- Não configurar email templates / reset de senha agora (pode ser feito depois).
+- Magic link não será implementado.
