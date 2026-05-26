@@ -41,7 +41,6 @@ export function VendedorForm({ seller }: { seller?: Seller | null }) {
 
   const save = useMutation({
     mutationFn: async () => {
-      if (form.cpf && !isValidCPF(form.cpf)) throw new Error("CPF inválido");
       const payload = {
         ...form,
         code: form.code || genCode(),
@@ -79,6 +78,14 @@ export function VendedorForm({ seller }: { seller?: Seller | null }) {
           className="glass rounded-2xl p-6 mt-8 space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
+            if (!form.cpf || !form.cpf.trim()) {
+              toast.error("CPF é obrigatório");
+              return;
+            }
+            if (!isValidCPF(form.cpf)) {
+              toast.error("CPF inválido");
+              return;
+            }
             save.mutate();
           }}
         >
@@ -115,8 +122,9 @@ export function VendedorForm({ seller }: { seller?: Seller | null }) {
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>CPF</Label>
+              <Label>CPF*</Label>
               <Input
+                required
                 value={form.cpf ?? ""}
                 onChange={(e) => setForm({ ...form, cpf: maskCPF(e.target.value) })}
                 placeholder="000.000.000-00"
