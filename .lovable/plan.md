@@ -1,45 +1,45 @@
 ## Diagnóstico
 
-O problema principal não parece ser o F12 da tela de login. Os avisos `postMessage` vêm do ambiente de preview/Lovable Script e não do código da aplicação. O aviso de autocomplete também é apenas recomendação do navegador.
+O comportamento atual tem dois pontos frágeis:
 
-O travamento ao salvar vendedor tem duas causas prováveis no código atual:
+1. O login sempre faz `navigate({ to: "/dashboard" })`, então mesmo uma conta admin é enviada primeiro para o dashboard.
+2. A validação de admin ainda depende de consulta client-side em `user_roles`. No snapshot de rede do preview, essa consulta retornou `[]` para o usuário logado (`006cfa39-1392-4507-a393-15ada79b848b`), então o app não consegue confirmar admin de forma confiável no navegador.
 
-1. `useCurrentRole` chama consulta ao banco diretamente dentro do callback de `onAuthStateChange`. A própria documentação do Supabase alerta que isso pode causar deadlock/travamento quando o callback executa APIs assíncronas do Supabase.
-2. O admin está sendo validado pelo cliente consultando `user_roles`. No snapshot de rede, essa consulta retornou `[]` para o usuário atual, então o app pode interpretar momentaneamente como “não admin”, redirecionar para `/dashboard`, e o dashboard chama server functions protegidas. Se a sessão ainda não estiver totalmente pronta, volta para `/login`.
+## Plano de correção definitiva
 
-## Plano de correção definitivo
+1. **Criar uma função central de sessão/rota pós-login**
+   - Adicionar uma server function autenticada, por exemplo `getSessionHome`, que recebe o token do usuário via middleware já existente.
+   - No servidor, validar o usuário e consultar `user_roles` com acesso seguro do backend.
+   - Retornar a rota correta:
+     - `admin` → `/admin`
+     - `master` ou `user` → `/dashboard`
+     - sem papel → `/dashboard` com fallback controlado.
 
-1. **Corrigir o hook de papel do usuário**
-   - Remover qualquer consulta `supabase.from(...)` de dentro do `onAuthStateChange`.
-   - O callback passará a apenas atualizar a sessão/usuário em estado local.
-   - A busca de `user_roles` ficará em um `useEffect` separado, disparado depois que o usuário estiver definido.
-   - Isso elimina a causa clássica de congelamento do Supabase JS.
+2. **Corrigir o login**
+   - Depois de `signInWithPassword`, chamar essa função de sessão/rota.
+   - Redirecionar admin diretamente para `/admin`, não para `/dashboard`.
+   - Manter suporte a `redirect` na URL, mas só usar se for compatível com o papel do usuário; por exemplo, admin pode ir para `/admin/...`, usuário comum não.
+   - Mostrar erro claro se a sessão entrou mas a validação de rota falhou, sem travar.
 
-2. **Padronizar guarda de admin sem derrubar para login**
-   - Ajustar `_authenticated/admin.tsx` para não depender de consulta frágil no cliente em toda navegação.
-   - Manter a sessão como requisito no `_authenticated`, mas no admin evitar redirecionamentos agressivos quando a consulta de role falhar ou vier temporariamente vazia.
-   - Se a consulta confirmar que o usuário não é admin, redireciona para `/dashboard`; se houver falha/incerteza, deixa a tela mostrar erro controlado em vez de travar/deslogar.
+3. **Trocar o AdminGate para validação server-side**
+   - Remover a decisão de admin baseada apenas em `supabase.from("user_roles")` no cliente.
+   - Usar a mesma server function para confirmar admin.
+   - Se for admin, renderiza o admin; se não for, mostra “Acesso restrito” ou manda para `/dashboard` sem cair no login.
+   - Evitar cache positivo amplo em `sessionStorage` que possa mascarar mudança de papel; se mantiver cache, será por usuário e curto/só como otimização.
 
-3. **Blindar o formulário de vendedor**
-   - Validar nome, CPF, comissão e código antes de chamar o banco.
-   - Gerar código único com mais segurança no cadastro novo para reduzir erro de `duplicate key`.
-   - Enviar CPF normalizado ou mascarado de forma consistente.
-   - Trocar `insert(payload)` por `insert(payload).select('id, code').single()` para capturar erro real e confirmar que criou.
-   - Exibir `toast` claro para erro de permissão, código duplicado, CPF inválido e falha genérica.
-   - Impedir duplo clique enquanto `save.isPending`.
+4. **Reutilizar o mesmo papel no menu**
+   - Ajustar `useCurrentRole` para poder usar a validação central ou pelo menos não contradizer o AdminGate.
+   - Assim o menu mostra links de admin apenas quando o backend confirmou admin.
 
-4. **Separar operações admin sensíveis do cliente, se necessário**
-   - Se as políticas atuais continuarem retornando `[]` para `user_roles` ou negando `sellers.insert`, criar server functions admin usando service role no servidor, validando admin com `has_role`/`user_roles` antes de inserir/editar/excluir.
-   - Isso remove a dependência do RLS do navegador para operações administrativas e deixa o fluxo padrão de mercado: cliente chama uma função autenticada, servidor valida permissão e grava.
+5. **Blindar o dashboard contra admin indevido**
+   - Se um admin cair em `/dashboard` por link manual ou fallback, redirecionar para `/admin` após confirmar o papel.
+   - Isso elimina o loop “login → dashboard” para admins.
 
-5. **Melhorar erros nas telas admin**
-   - Lista de vendedores, edição e usuários devem mostrar erro visível em tela, não estado vazio.
-   - Dashboard admin deve tratar erro de `user_roles`/`test_purchases` sem quebrar navegação.
-
-6. **Verificação final**
-   - Reproduzir fluxo: login → admin → vendedores → novo vendedor → CPF inválido → CPF válido → salvar → voltar para lista.
-   - Confirmar que não há redirect inesperado para `/login` e que mensagens aparecem.
+6. **Verificação no preview**
+   - Testar fluxo: logout/login → admin deve abrir `/admin`.
+   - Abrir `/admin/vendedores` e `/admin/salas` sem voltar para login.
+   - Confirmar pelo Network que a checagem de role não retorna mais `[]` como fonte da decisão final.
 
 ## Observação importante
 
-Os erros do screenshot no F12 são do container de preview e não explicam o cadastro não criar vendedor. Vou focar a correção no travamento real: auth listener, guarda admin, permissões e fluxo de salvamento.
+Se o banco realmente não tiver nenhum registro `admin` para o usuário logado, a correção de código vai passar a mostrar uma mensagem clara de “conta sem papel admin”, em vez de travar ou mandar para login. Nesse caso, será necessário inserir/ajustar o papel desse usuário no Supabase externo.

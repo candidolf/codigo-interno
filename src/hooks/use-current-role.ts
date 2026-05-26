@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
+import { getSessionHome } from "@/lib/session.functions";
 
 export type Role = "guest" | "master" | "user" | "admin";
 
@@ -10,6 +12,7 @@ export function useCurrentRole(): { role: Role; loading: boolean } {
   const [uid, setUid] = useState<string | null>(null);
   const [role, setRole] = useState<Role>("guest");
   const [loading, setLoading] = useState(true);
+  const fetchHome = useServerFn(getSessionHome);
 
   // 1) Apenas observa o usuário. NUNCA chama supabase.from(...) dentro do
   //    callback de onAuthStateChange — isso pode causar deadlock no client.
@@ -51,28 +54,23 @@ export function useCurrentRole(): { role: Role; loading: boolean } {
       return;
     }
     setLoading(true);
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", uid)
-      .then(({ data }) => {
+    fetchHome()
+      .then((info) => {
         if (!mounted) return;
-        const roles = (data ?? []).map((r: any) => r.role as Role);
-        const pick: Role = roles.includes("admin")
-          ? "admin"
-          : roles.includes("master")
-          ? "master"
-          : roles.includes("user")
-          ? "user"
-          : "guest";
+        const pick = (info.primaryRole as Role) ?? "user";
         roleCache.set(uid, pick);
         setRole(pick);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setRole("user");
         setLoading(false);
       });
     return () => {
       mounted = false;
     };
-  }, [uid]);
+  }, [uid, fetchHome]);
 
   return { role, loading };
 }

@@ -1,59 +1,36 @@
-import { Outlet, createFileRoute, Link } from "@tanstack/react-router";
+import { Outlet, createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { supabaseConfigured } from "@/integrations/supabase/client";
+import { getSessionHome } from "@/lib/session.functions";
 
 type Status = "checking" | "admin" | "denied" | "error";
 
 function AdminGate() {
-  const [status, setStatus] = useState<Status>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        // qualquer cache positivo prévio
-        const keys = Object.keys(sessionStorage).filter((k) => k.startsWith("admin-role:"));
-        if (keys.some((k) => sessionStorage.getItem(k) === "1")) return "admin";
-      } catch {}
-    }
-    return "checking";
-  });
+  const fetchHome = useServerFn(getSessionHome);
+  const [status, setStatus] = useState<Status>("checking");
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabaseConfigured) {
-      setStatus("admin"); // sem backend: não bloqueia navegação
+      setStatus("admin");
       return;
     }
     let mounted = true;
     (async () => {
-      const { data: s } = await supabase.auth.getSession();
-      const uid = s.session?.user.id;
-      if (!uid) return; // _authenticated trata redirect para /login
-      const cacheKey = `admin-role:${uid}`;
       try {
-        if (sessionStorage.getItem(cacheKey) === "1") {
-          if (mounted) setStatus("admin");
-          return;
-        }
-      } catch {}
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", uid);
-      if (!mounted) return;
-      if (error) {
-        setErrMsg(error.message);
+        const info = await fetchHome();
+        if (!mounted) return;
+        if (info.isAdmin) setStatus("admin");
+        else setStatus("denied");
+      } catch (e: any) {
+        if (!mounted) return;
+        setErrMsg(e?.message ?? "Falha ao validar permissão");
         setStatus("error");
-        return;
-      }
-      const isAdmin = (data ?? []).some((r: any) => r.role === "admin");
-      if (isAdmin) {
-        try { sessionStorage.setItem(cacheKey, "1"); } catch {}
-        setStatus("admin");
-      } else {
-        setStatus("denied");
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [fetchHome]);
 
   if (status === "checking") {
     return (
