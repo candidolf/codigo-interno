@@ -41,12 +41,14 @@ export function VendedorForm({ seller }: { seller?: Seller | null }) {
 
   const save = useMutation({
     mutationFn: async () => {
+      const rate = Number.isFinite(form.commission_rate) ? form.commission_rate : 0;
       const payload = {
         ...form,
-        code: form.code || genCode(),
-        email: form.email || null,
-        phone: form.phone || null,
-        cpf: form.cpf || null,
+        code: (form.code || genCode()).toUpperCase(),
+        email: form.email?.trim() || null,
+        phone: form.phone?.trim() || null,
+        cpf: form.cpf?.trim() || null,
+        commission_rate: Math.max(0, Math.min(1, rate)),
       };
       if (editing) {
         const { error } = await supabase.from("sellers").update(payload).eq("id", seller!.id!);
@@ -59,9 +61,10 @@ export function VendedorForm({ seller }: { seller?: Seller | null }) {
     onSuccess: () => {
       toast.success("Vendedor salvo");
       qc.invalidateQueries({ queryKey: ["sellers"] });
+      qc.invalidateQueries({ queryKey: ["seller"] });
       navigate({ to: "/admin/vendedores" });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar vendedor"),
   });
 
   return (

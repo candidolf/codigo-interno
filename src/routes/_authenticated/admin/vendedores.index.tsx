@@ -29,17 +29,18 @@ function AdminVendedores() {
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
   })();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["sellers", "with-month-tests"],
     queryFn: async () => {
-      const [{ data: sellers }, { data: purchases }] = await Promise.all([
-        supabase.from("sellers").select("*").order("full_name"),
+      const sellersRes = await supabase.from("sellers").select("*").order("full_name");
+      if (sellersRes.error) throw sellersRes.error;
+      const { data: purchases } = await
         supabase
           .from("test_purchases")
           .select("seller_code")
           .gte("created_at", monthStart)
-          .in("status", ["pago", "em_andamento", "concluido"]),
-      ]);
+          .in("status", ["pago", "em_andamento", "concluido"]);
+      const sellers = sellersRes.data;
       const counts = new Map<string, number>();
       (purchases ?? []).forEach((p: any) => {
         if (!p.seller_code) return;
@@ -106,7 +107,9 @@ function AdminVendedores() {
               {!isLoading && (data ?? []).length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                    Nenhum vendedor cadastrado.
+                    {isError
+                      ? `Erro: ${(error as any)?.message ?? "falha ao carregar"}`
+                      : "Nenhum vendedor cadastrado."}
                   </TableCell>
                 </TableRow>
               )}
