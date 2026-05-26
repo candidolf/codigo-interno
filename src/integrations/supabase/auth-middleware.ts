@@ -1,5 +1,5 @@
 import { createMiddleware } from "@tanstack/react-start";
-import { createServerSupabase, supabaseAdmin } from "./client.server";
+import { createServerSupabase, getSupabaseAdmin } from "./client.server";
 
 /**
  * Middleware for server fns that require an authenticated user.
@@ -16,7 +16,9 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
     return next({
       context: {
         supabase,
-        admin: supabaseAdmin,
+        get admin() {
+          return getSupabaseAdmin();
+        },
         userId: data.user.id,
         userEmail: data.user.email ?? null,
       },

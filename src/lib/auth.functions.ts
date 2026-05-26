@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createServerSupabase, supabaseAdmin } from "@/integrations/supabase/client.server";
+import { createServerSupabase } from "@/integrations/supabase/client.server";
 
 export type Role = "admin" | "master" | "user";
 
@@ -20,8 +20,8 @@ export const getCurrentUser = createServerFn({ method: "GET" }).handler(
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return null;
 
-    // Use admin client to read roles — bypasses any RLS surprises.
-    const { data: rolesData } = await supabaseAdmin
+    // RLS policy `user_roles_select_self` lets the user read their own roles.
+    const { data: rolesData } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", data.user.id);
