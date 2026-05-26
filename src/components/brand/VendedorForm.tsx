@@ -51,10 +51,19 @@ export function VendedorForm({ seller }: { seller?: Seller | null }) {
         commission_rate: Math.max(0, Math.min(1, rate)),
       };
       if (editing) {
-        const { error } = await supabase.from("sellers").update(payload).eq("id", seller!.id!);
+        const { error } = await supabase
+          .from("sellers")
+          .update(payload)
+          .eq("id", seller!.id!)
+          .select("id")
+          .maybeSingle();
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("sellers").insert(payload);
+        const { error } = await supabase
+          .from("sellers")
+          .insert(payload)
+          .select("id, code")
+          .maybeSingle();
         if (error) throw error;
       }
     },
@@ -64,7 +73,16 @@ export function VendedorForm({ seller }: { seller?: Seller | null }) {
       qc.invalidateQueries({ queryKey: ["seller"] });
       navigate({ to: "/admin/vendedores" });
     },
-    onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar vendedor"),
+    onError: (e: any) => {
+      const msg = e?.message ?? "Erro ao salvar vendedor";
+      if (/duplicate key|sellers_code_key|unique/i.test(msg)) {
+        toast.error("Código de vendedor já existe. Use outro.");
+      } else if (/row-level security|permission/i.test(msg)) {
+        toast.error("Sem permissão para salvar. Faça login como admin.");
+      } else {
+        toast.error(msg);
+      }
+    },
   });
 
   return (
