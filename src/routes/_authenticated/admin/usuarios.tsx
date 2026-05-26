@@ -44,7 +44,7 @@ function AdminUsers() {
   const [editRole, setEditRole] = useState<"admin" | "master" | "user">("user");
   const [toDelete, setToDelete] = useState<Row | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async (): Promise<Row[]> => {
       const [{ data: profs }, { data: roles }] = await Promise.all([
@@ -150,6 +150,13 @@ function AdminUsers() {
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                     Carregando…
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && isError && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-destructive py-8">
+                    Erro ao carregar: {(error as any)?.message ?? "desconhecido"}
                   </TableCell>
                 </TableRow>
               )}
