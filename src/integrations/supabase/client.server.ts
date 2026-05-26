@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { getCookies, setCookie } from "@tanstack/react-start/server";
+import { getCookies, setCookie, getRequestHeader } from "@tanstack/react-start/server";
 
 function readEnv(...names: string[]): string | undefined {
   for (const n of names) {
@@ -34,7 +34,18 @@ const SUPABASE_ANON_KEY = () =>
  * RLS applies as that user.
  */
 export function createServerSupabase(): SupabaseClient {
+  // Prefer Authorization: Bearer (sent by the client-side attacher) — robust
+  // in iframe/preview contexts where cookies don't reach the server fn.
+  let bearer: string | undefined;
+  try {
+    const h = getRequestHeader("authorization") ?? getRequestHeader("Authorization");
+    if (h?.toLowerCase().startsWith("bearer ")) bearer = h.slice(7);
+  } catch {
+    // outside request context
+  }
+
   return createServerClient(SUPABASE_URL(), SUPABASE_ANON_KEY(), {
+    global: bearer ? { headers: { Authorization: `Bearer ${bearer}` } } : undefined,
     cookies: {
       getAll() {
         const all = getCookies() ?? {};
