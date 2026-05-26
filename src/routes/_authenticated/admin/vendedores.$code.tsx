@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/admin/vendedores/$code")({
 
 function EditSeller() {
   const { code } = Route.useParams();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["seller", code],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -27,6 +27,16 @@ function EditSeller() {
       <div className="min-h-screen">
         <BrandHeader />
         <main className="container mx-auto px-6 py-12 text-muted-foreground">Carregando…</main>
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <div className="min-h-screen">
+        <BrandHeader />
+        <main className="container mx-auto px-6 py-12 text-destructive">
+          Erro ao carregar vendedor: {(error as any)?.message ?? "desconhecido"}
+        </main>
       </div>
     );
   }

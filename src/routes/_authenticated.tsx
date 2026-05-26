@@ -6,8 +6,9 @@ export const Route = createFileRoute("/_authenticated")({
     if (!supabaseConfigured) {
       throw redirect({ to: "/login", search: { redirect: location.href } as any });
     }
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
+    // Usar getSession (sem rede) para evitar race com refresh de token.
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
       throw redirect({ to: "/login", search: { redirect: location.href } as any });
     }
   },
