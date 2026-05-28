@@ -135,7 +135,6 @@ export const checkInviteEmailStatus = createServerFn({ method: "POST" })
     // Check auth.users via admin listUsers (filter client-side by email)
     let emailExists = false;
     try {
-      // @ts-expect-error admin api typing
       const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
       const lower = email.toLowerCase();
       emailExists = !!list?.users?.some((u: any) => (u.email ?? "").toLowerCase() === lower);
