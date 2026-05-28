@@ -119,3 +119,28 @@ export const consumeInvite = createServerFn({ method: "POST" })
 
     return { purchaseId: invite.purchase_id };
   });
+
+export const checkInviteEmailStatus = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ token: z.string().min(8).max(64) }).parse(input))
+  .handler(async ({ data }) => {
+    const { data: invite, error } = await supabaseAdmin
+      .from("invites")
+      .select("testando_email")
+      .eq("token", data.token)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const email = invite?.testando_email ?? null;
+    if (!email) return { emailExists: false, email: null };
+
+    // Check auth.users via admin listUsers (filter client-side by email)
+    let emailExists = false;
+    try {
+      // @ts-expect-error admin api typing
+      const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const lower = email.toLowerCase();
+      emailExists = !!list?.users?.some((u: any) => (u.email ?? "").toLowerCase() === lower);
+    } catch {
+      emailExists = false;
+    }
+    return { emailExists, email };
+  });
