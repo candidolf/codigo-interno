@@ -63,6 +63,7 @@ function Login() {
       },
     });
   };
+  const googleEnabled = import.meta.env.VITE_GOOGLE_OAUTH_ENABLED === "true";
 
   return (
     <div className="min-h-screen">
@@ -83,9 +84,11 @@ function Login() {
           </div>
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <GradientButton type="submit" className="w-full cursor-pointer" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</GradientButton>
-          <button type="button" onClick={onGoogle} className="w-full rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent cursor-pointer">
-            Entrar com Google
-          </button>
+          {googleEnabled ? (
+            <button type="button" onClick={onGoogle} className="w-full rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent cursor-pointer">
+              Entrar com Google
+            </button>
+          ) : null}
           <p className="text-center text-sm text-muted-foreground">Não tem conta? <Link to="/cadastro" className="underline cursor-pointer">Criar conta</Link></p>
         </form>
       </main>
