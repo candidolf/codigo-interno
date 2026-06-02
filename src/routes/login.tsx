@@ -35,6 +35,8 @@ function Login() {
     try {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) { setError(translateAuthError(err.message)); return; }
+      // Garante que a sessão está persistida antes de navegar
+      await supabase.auth.getUser();
       await qc.invalidateQueries({ queryKey: ["auth", "me"] });
       const dest = (search.redirect as string) || "/dashboard";
       navigate({ to: dest as any });

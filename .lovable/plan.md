@@ -1,52 +1,67 @@
+# Revisar Auth no padrão Supabase
+
 ## Diagnóstico
 
-Como o cadastro não pede confirmação de e-mail, o usuário já entra com sessão válida. O bug real está em `src/routes/login.tsx`:
+O fluxo atual:
+1. Login chama `supabase.auth.signInWithPassword` → `navigate({ to: "/dashboard" })`.
+2. `/dashboard` está sob `src/routes/_authenticated.tsx`, cujo `beforeLoad` chama o **server fn** `getCurrentUser()`.
+3. Esse server fn lê a sessão pelo header `Authorization: Bearer` injetado pelo `attachSupabaseAuth` no client.
 
-```ts
-try {
-  const { error: err } = await supabase.auth.signInWithPassword(...);
-  if (err) { setError(...); return; }
-  await qc.invalidateQueries(...);
-  let dest = search.redirect ?? "";
-  if (!dest) {
-    const { getCurrentUser } = await import("@/lib/auth.functions");
-    const me = await getCurrentUser();   // ← pode lançar
-    dest = me?.isAdmin ? "/admin" : "/dashboard";
-  }
-  navigate({ to: dest });
-} finally { setLoading(false); }
+Problemas com esse desenho (e por que "nada acontece"):
+- `_authenticated.tsx` **não tem `ssr: false`**. Em SSR/preview/iframe (cookies não chegam, sessão fica só no `localStorage`), o `beforeLoad` roda no server sem bearer → `getCurrentUser` retorna `null` → redireciona de volta para `/login` silenciosamente. Resultado: o usuário vê "nada aconteceu".
+- Existe uma janela de corrida: imediatamente após `signInWithPassword`, a sessão pode ainda não ter sido persistida quando o `beforeLoad` dispara o RPC.
+- O padrão recomendado para Lovable + Supabase é ter um único gate **client-only** que usa `supabase.auth.getUser()` diretamente, sem round-trip de server fn em cada navegação. Server fns continuam protegidas via `requireSupabaseAuth` (a defesa real).
+
+## O que mudar
+
+### 1. `src/routes/_authenticated.tsx` — gate client-only no padrão Supabase
+
+Reescrever para usar `ssr: false` + `supabase.auth.getUser()` direto, redirecionando para `/login` com `redirect=` quando não houver sessão. Sem chamar `getCurrentUser` server fn aqui.
+
+```tsx
+export const Route = createFileRoute("/_authenticated")({
+  ssr: false,
+  beforeLoad: async ({ location }) => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      throw redirect({ to: "/login", search: { redirect: location.href } as any });
+    }
+    return { user: data.user };
+  },
+  component: () => <Outlet />,
+});
 ```
 
-Não há `catch`. Se `getCurrentUser()` lança (token ainda não anexado pelo `attachSupabaseAuth`, RLS em `user_roles`, etc.), o `throw` sobe, `navigate` nunca executa, `setLoading(false)` roda no `finally` e a UI fica como "nada aconteceu, sem erro" — exatamente o sintoma.
+### 2. `src/routes/_authenticated/admin.tsx` — mesma mudança
 
-O mesmo problema, em menor grau, existe no `cadastro.tsx`: depois do `signUp` ele navega direto para `/dashboard`, mas se a sessão ainda não estiver hidratada o `_authenticated` empurra de volta para `/login`.
+`ssr: false`, valida `supabase.auth.getUser()` no client e depois consulta `is_admin` via server fn `getCurrentUser` (esse sim faz sentido pois precisa checar `user_roles` com RLS). Se não for admin → redirect para `/dashboard`.
 
-## Correções (somente frontend)
+### 3. `src/routes/login.tsx` — sem RPC desnecessário
 
-### 1. `src/routes/login.tsx`
-- Remover a chamada a `getCurrentUser()` daqui. Decisão de destino fica simples:
-  - se `search.redirect` existe → vai para ele;
-  - senão → `/dashboard` (o próprio `/dashboard` ou guarda admin redireciona se for admin, ou adicionamos esse redirecionamento depois).
-- Envolver tudo em `try / catch / finally` de verdade: no `catch`, `setError(translateAuthError(e.message ?? "Erro ao entrar"))`.
-- Após `signInWithPassword`, aguardar `supabase.auth.getSession()` (rápido, local) antes de `navigate`, para garantir que a próxima rota já leia a sessão.
+- Mantém o try/catch/finally já adicionado.
+- Após `signInWithPassword`, aguarda `supabase.auth.getUser()` retornar com sucesso (garante sessão persistida) antes do `navigate`.
+- Destino: `search.redirect || "/dashboard"`. O redirect admin → `/admin` continua sendo feito dentro de `dashboard.tsx` (já implementado).
 
-### 2. `src/routes/cadastro.tsx`
-- Após `signUp` sem erro, checar `data.session`:
-  - se existir → `navigate({ to: "/dashboard" })`;
-  - se `null` (confirmação ligada) → mostrar mensagem "Enviamos um link de confirmação para seu e-mail" e não navegar.
-- Adicionar `try / catch` em volta da chamada para capturar exceções inesperadas.
+### 4. `src/routes/cadastro.tsx` — sem mudança extra
 
-### 3. Redirecionamento admin
-Para não perder o comportamento "admin vai pra /admin": adicionar um pequeno guard em `src/routes/_authenticated/dashboard.tsx` (ou no `_authenticated.tsx`) que, se `useAuth().isAdmin`, faz `navigate({ to: "/admin", replace: true })`. Isso tira essa lógica frágil do submit do login.
+Já trata o caso `session === null` (confirmação de e-mail) mostrando mensagem.
 
-## Sem mudanças em
+### 5. Sanidade
 
-- Server functions, RLS, migrations, fluxo de convite.
-- `auth-attacher`, `auth-middleware`, clients do Supabase.
+- `attachSupabaseAuth` já está em `functionMiddleware` (`src/start.ts`) — manter.
+- `requireSupabaseAuth` continua protegendo os server fns (defesa real). O gate de rota é só UX.
+- Não tocar em `getCurrentUser` (ainda usado por `useAuth` e pelo gate de admin para descobrir roles).
 
-## Resultado esperado
+## Não muda
 
-- Login com credenciais corretas → vai direto para `/dashboard` (ou `/admin` via redirect interno).
-- Login com credenciais erradas → mostra erro traduzido.
-- Qualquer exceção inesperada → mostra erro no `Alert` em vez de "nada acontece".
-- Cadastro com confirmação desligada → entra direto no dashboard. Com confirmação ligada → mensagem clara, sem loop.
+- Schema, RLS, policies, env vars.
+- `client.ts`, `client.server.ts`, `auth-middleware.ts`, `auth-attacher.ts`.
+- Rotas filhas de `_authenticated/` — herdam o novo gate automaticamente.
+
+## Verificação
+
+1. Cadastrar usuário novo → deve cair no `/dashboard`.
+2. Logout → tentar acessar `/dashboard` → redireciona para `/login?redirect=/dashboard`.
+3. Login → volta para `/dashboard`.
+4. Login como admin → `dashboard.tsx` redireciona para `/admin`.
+5. Refresh em `/dashboard` autenticado → permanece (sem loop).
