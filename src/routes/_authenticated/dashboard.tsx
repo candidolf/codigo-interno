@@ -1,5 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { useServerFn } from "@tanstack/react-start";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
@@ -28,6 +30,11 @@ function fmtDate(s: string) {
 }
 
 function Dashboard() {
+  const navigate = useNavigate();
+  const { isAdmin, loading } = useAuth();
+  useEffect(() => {
+    if (!loading && isAdmin) navigate({ to: "/admin", replace: true });
+  }, [loading, isAdmin, navigate]);
   const fetchList = useServerFn(listMyPurchases);
   const { data: purchases, isLoading } = useQuery({
     queryKey: ["my-purchases"],

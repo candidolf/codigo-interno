@@ -37,7 +37,7 @@ function Cadastro() {
     if (calcAge(date) < 18) { setError("Para criar conta master é necessário ter 18 anos ou mais."); return; }
     setLoading(true);
     try {
-      const { error: err } = await supabase.auth.signUp({
+      const { data, error: err } = await supabase.auth.signUp({
         email, password,
         options: {
           emailRedirectTo: window.location.origin,
@@ -45,7 +45,13 @@ function Cadastro() {
         },
       });
       if (err) { setError(translateAuthError(err.message)); return; }
-      navigate({ to: "/dashboard" });
+      if (data.session) {
+        navigate({ to: "/dashboard" });
+      } else {
+        setError("Enviamos um link de confirmação para o seu e-mail. Confirme para entrar.");
+      }
+    } catch (e: any) {
+      setError(translateAuthError(e?.message ?? "Erro ao criar conta"));
     } finally { setLoading(false); }
   };
 
