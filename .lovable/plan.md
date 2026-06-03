@@ -1,43 +1,67 @@
-## Objetivo
+## Causa raiz
 
-Substituir, **somente quando o usuário está logado**, o bloco atual "nome + email + botão Sair" por um padrão de mercado: avatar circular com dropdown contendo informações do usuário e ações (Perfil, Sair). Manter o header de visitante (guest) intacto.
+Na imagem o usuário está em `/dashboard` (rota protegida, então a sessão Supabase existe — a chamada `listMyPurchases` funciona), mas o `BrandHeader` continua mostrando a versão de visitante ("Início | Login | Criar conta") em vez do avatar + dropdown.
 
-## Estado atual
+O motivo está em `src/lib/auth.functions.ts`:
 
-`src/components/brand/BrandHeader.tsx` hoje mostra, à direita:
-- Nome + email empilhados (escondido em mobile)
-- Botão "Sair" sempre visível
+```ts
+export const getCurrentUser = createServerFn({ method: "GET" }).handler(async () => {
+  const supabase = createServerSupabase();
+  const { data, error } = await supabase.auth.getUser(); // <- SEM passar o bearer
+  ...
+});
+```
 
-Sem avatar, sem menu, e a navegação fica oculta no mobile (`hidden md:flex`) sem alternativa hambúrguer.
+- No preview (iframe), os cookies do Supabase frequentemente não atravessam a fronteira do server fn — por isso o projeto já usa um `attachSupabaseAuth` que injeta `Authorization: Bearer <token>` em cada chamada.
+- `createServerSupabase()` lê esse bearer e injeta como `global.headers`, mas isso só afeta chamadas PostgREST. **`supabase.auth.getUser()` ignora esse header** quando chamado sem argumento — ele tenta ler a sessão pelos cookies, não encontra, e retorna `null`.
+- Resultado: `useAuth()` recebe `null` → `isAuthenticated=false` → `BrandHeader` renderiza a versão de visitante mesmo logado.
 
-## Mudanças (apenas em `BrandHeader.tsx`)
+A função `requireSupabaseAuth` faz certo (`supabase.auth.getUser(bearer)`), mas o `getCurrentUser` não — esse é o único ponto que ainda quebra.
 
-### 1. Avatar + dropdown do usuário (desktop e mobile)
-Usando `@/components/ui/avatar` + `@/components/ui/dropdown-menu` (ambos já existem).
+## Correção (1 arquivo)
 
-- Trigger: `<Avatar>` circular (40px) com `AvatarFallback` mostrando as iniciais derivadas de `displayName` (ex: "Lucas Lima" → "LL"); cursor pointer; ring sutil no hover.
-- Conteúdo do dropdown (alinhado à direita):
-  - Cabeçalho não-clicável: nome em negrito + email em `text-muted-foreground` + badge pequeno com o papel ("Master" / "Admin").
-  - Separator.
-  - Item "Meu perfil" → navega para `/perfil` (rota já existe? confirmar — se não existir, deixar item desabilitado/oculto por ora; o foco do plano é o padrão visual + Sair).
-  - Item "Sair" com ícone `LogOut` (lucide-react) e cor destrutiva sutil → chama `signOut()` + `navigate('/login')`.
+**`src/lib/auth.functions.ts`** — passar o bearer explicitamente para `auth.getUser`, mantendo o comportamento "retorna `null` quando não autenticado" (não pode usar `requireSupabaseAuth` porque essa middleware lança erro, e o `useAuth` precisa do `null` para a rota `/login`).
 
-### 2. Menu mobile (hambúrguer)
-Quando `role !== "guest"` e em telas `<md`, mostrar um botão com ícone `Menu` (lucide) que abre um `Sheet` lateral (já disponível) listando os mesmos `items` de navegação por papel. O avatar/dropdown permanece visível ao lado do hambúrguer.
+```ts
+import { createServerFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
+import { createServerSupabase } from "@/integrations/supabase/client.server";
 
-### 3. Guest permanece igual
-Visitante continua vendo o CTA "Criar conta". Sem avatar nem dropdown.
+export const getCurrentUser = createServerFn({ method: "GET" }).handler(
+  async (): Promise<CurrentUser> => {
+    const supabase = createServerSupabase();
 
-## Detalhes visuais
+    // Extrai o bearer attachado pelo attachSupabaseAuth (cookies não chegam no preview)
+    let bearer: string | undefined;
+    try {
+      const h = getRequestHeader("authorization") ?? getRequestHeader("Authorization");
+      if (h?.toLowerCase().startsWith("bearer ")) bearer = h.slice(7);
+    } catch { /* fora de contexto de request */ }
 
-- Iniciais: até 2 letras, maiúsculas, fonte display.
-- Fallback do avatar: `bg-gradient-brand text-white` para casar com a identidade.
-- Dropdown: largura ~240px, borda glass (`border border-border/60 bg-popover/95 backdrop-blur`), respeita tokens semânticos.
-- Sem mexer no logo, sem mexer na navegação inline desktop, sem mexer no header guest.
+    const { data, error } = bearer
+      ? await supabase.auth.getUser(bearer)
+      : await supabase.auth.getUser();
 
-## Itens em aberto (responder antes de implementar se quiser)
+    if (error || !data.user) return null;
 
-- Existe rota `/perfil`? Se não, devo (a) ocultar o item, (b) criar uma rota stub, ou (c) apontar para outra existente (ex: `/dashboard`)?
-- Quer também um item "Configurações" no dropdown agora, ou só "Meu perfil" + "Sair"?
+    const { data: rolesData } = await supabase
+      .from("user_roles").select("role").eq("user_id", data.user.id);
+    const roles = ((rolesData ?? []) as { role: Role }[]).map((r) => r.role);
+    return {
+      userId: data.user.id,
+      email: data.user.email ?? null,
+      roles,
+      isAdmin: roles.includes("admin"),
+    };
+  },
+);
+```
 
-Se preferir, sigo com: **somente "Sair"** no dropdown + cabeçalho com nome/email/papel, e adicionamos "Meu perfil"/"Configurações" depois.
+## Verificação
+
+1. Logar e cair em `/dashboard` (ou `/admin`).
+2. Cabeçalho deve mostrar avatar com iniciais à direita, e ao clicar abre o dropdown com nome/e-mail/badge e "Sair".
+3. Em < 768px, deve aparecer o botão hambúrguer ao lado do avatar abrindo o Sheet com a navegação.
+4. `/login` (deslogado) continua mostrando "Criar conta" como antes.
+
+Nenhuma mudança no `BrandHeader.tsx` é necessária — ele já está correto; só não estava recebendo o usuário de volta.

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import { createServerSupabase } from "@/integrations/supabase/client.server";
 
 export type Role = "admin" | "master" | "user";
@@ -17,7 +18,20 @@ export type CurrentUser = {
 export const getCurrentUser = createServerFn({ method: "GET" }).handler(
   async (): Promise<CurrentUser> => {
     const supabase = createServerSupabase();
-    const { data, error } = await supabase.auth.getUser();
+
+    // Cookies frequentemente não atravessam a fronteira do server fn no preview/iframe,
+    // então preferimos o bearer attachado pelo attachSupabaseAuth.
+    let bearer: string | undefined;
+    try {
+      const h = getRequestHeader("authorization") ?? getRequestHeader("Authorization");
+      if (h?.toLowerCase().startsWith("bearer ")) bearer = h.slice(7);
+    } catch {
+      /* fora de contexto de request */
+    }
+
+    const { data, error } = bearer
+      ? await supabase.auth.getUser(bearer)
+      : await supabase.auth.getUser();
     if (error || !data.user) return null;
 
     // RLS policy `user_roles_select_self` lets the user read their own roles.
