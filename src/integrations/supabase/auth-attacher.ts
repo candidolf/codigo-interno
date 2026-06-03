@@ -8,6 +8,7 @@ import { supabase, supabaseConfigured } from "./client";
  */
 export const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
   async ({ next }) => {
+    if (typeof window === "undefined") return next();
     if (!supabaseConfigured) return next();
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;

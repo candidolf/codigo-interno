@@ -1,5 +1,4 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
@@ -20,7 +19,6 @@ export const Route = createFileRoute("/login")({
 function Login() {
   const navigate = useNavigate();
   const search = Route.useSearch();
-  const qc = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,9 +33,7 @@ function Login() {
     try {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) { setError(translateAuthError(err.message)); return; }
-      // Garante que a sessão está persistida antes de navegar
-      await supabase.auth.getUser();
-      await qc.invalidateQueries({ queryKey: ["auth", "me"] });
+      // onAuthStateChange no __root invalida as queries; aqui só navegamos.
       const dest = (search.redirect as string) || "/dashboard";
       navigate({ to: dest as any });
     } catch (e: any) {
