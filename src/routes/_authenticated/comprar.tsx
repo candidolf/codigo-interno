@@ -91,7 +91,12 @@ function Comprar() {
       }
 
       // Garante que há sessão válida antes de chamar o server fn.
-      const { data: sessionData } = await supabase.auth.getSession();
+      // Força refresh para evitar enviar um token quase vencido.
+      let { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session?.refresh_token) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed.session) sessionData = { session: refreshed.session };
+      }
       if (!sessionData.session?.access_token) {
         navigate({ to: "/login", search: { redirect: "/comprar" } as any });
         return;
@@ -118,9 +123,12 @@ function Comprar() {
       window.location.href = res.invoiceUrl;
     } catch (err: any) {
       const msg = err?.message ?? "Falha ao processar pagamento.";
-      const friendly = /unauthorized/i.test(msg)
-        ? "Sua sessão expirou. Saia e entre novamente para continuar."
-        : msg;
+      let friendly = msg;
+      if (/token de autenticação não foi enviado/i.test(msg)) {
+        friendly = "Falha ao autenticar a requisição. Recarregue a página (F5) e tente novamente.";
+      } else if (/unauthorized/i.test(msg)) {
+        friendly = "Sessão expirada. Saia e entre novamente para continuar.";
+      }
       setError(friendly);
       setLoading(false);
     }
