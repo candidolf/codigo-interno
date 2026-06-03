@@ -1,67 +1,23 @@
-## Causa raiz
+Plano para corrigir o header após login:
 
-Na imagem o usuário está em `/dashboard` (rota protegida, então a sessão Supabase existe — a chamada `listMyPurchases` funciona), mas o `BrandHeader` continua mostrando a versão de visitante ("Início | Login | Criar conta") em vez do avatar + dropdown.
+1. Separar o problema real do aviso do console
+   - Os erros `Failed to execute 'postMessage'... target origin` vêm do ambiente/preview do Lovable tentando conversar com domínios diferentes (`lovable.dev`, `gptengineer.app`, etc.).
+   - Eles não são a causa direta do header offline, porque também aparecem fora do fluxo de autenticação.
 
-O motivo está em `src/lib/auth.functions.ts`:
+2. Corrigir a fonte de autenticação do header
+   - Hoje o `BrandHeader` depende do `useAuth()`, e o `useAuth()` depende de uma server function (`getCurrentUser`).
+   - Quando o login acontece, a sessão já existe no navegador, mas a query `['auth','me']` pode continuar com `null` em cache ou refazer antes do token estar pronto.
+   - Vou ajustar `src/hooks/use-auth.ts` para usar a sessão do navegador como fonte imediata de verdade (`supabase.auth.getSession()` + `onAuthStateChange`) e usar `getCurrentUser` apenas para enriquecer com roles/admin.
+   - Resultado: se existe sessão local, o header já renderiza como logado, mesmo que a busca de roles ainda esteja carregando.
 
-```ts
-export const getCurrentUser = createServerFn({ method: "GET" }).handler(async () => {
-  const supabase = createServerSupabase();
-  const { data, error } = await supabase.auth.getUser(); // <- SEM passar o bearer
-  ...
-});
-```
+3. Corrigir a navegação pós-login
+   - Em `src/routes/login.tsx`, depois de `signInWithPassword`, vou atualizar/invalidate a query de auth antes de navegar para o dashboard.
+   - Isso evita que o dashboard abra com o cache antigo de usuário offline.
 
-- No preview (iframe), os cookies do Supabase frequentemente não atravessam a fronteira do server fn — por isso o projeto já usa um `attachSupabaseAuth` que injeta `Authorization: Bearer <token>` em cada chamada.
-- `createServerSupabase()` lê esse bearer e injeta como `global.headers`, mas isso só afeta chamadas PostgREST. **`supabase.auth.getUser()` ignora esse header** quando chamado sem argumento — ele tenta ler a sessão pelos cookies, não encontra, e retorna `null`.
-- Resultado: `useAuth()` recebe `null` → `isAuthenticated=false` → `BrandHeader` renderiza a versão de visitante mesmo logado.
+4. Manter compatibilidade com admin/master
+   - O header continua usando `isAdmin` quando a role chegar do servidor.
+   - Enquanto a role carrega, o usuário logado não verá mais o menu offline; verá o header autenticado padrão.
 
-A função `requireSupabaseAuth` faz certo (`supabase.auth.getUser(bearer)`), mas o `getCurrentUser` não — esse é o único ponto que ainda quebra.
-
-## Correção (1 arquivo)
-
-**`src/lib/auth.functions.ts`** — passar o bearer explicitamente para `auth.getUser`, mantendo o comportamento "retorna `null` quando não autenticado" (não pode usar `requireSupabaseAuth` porque essa middleware lança erro, e o `useAuth` precisa do `null` para a rota `/login`).
-
-```ts
-import { createServerFn } from "@tanstack/react-start";
-import { getRequestHeader } from "@tanstack/react-start/server";
-import { createServerSupabase } from "@/integrations/supabase/client.server";
-
-export const getCurrentUser = createServerFn({ method: "GET" }).handler(
-  async (): Promise<CurrentUser> => {
-    const supabase = createServerSupabase();
-
-    // Extrai o bearer attachado pelo attachSupabaseAuth (cookies não chegam no preview)
-    let bearer: string | undefined;
-    try {
-      const h = getRequestHeader("authorization") ?? getRequestHeader("Authorization");
-      if (h?.toLowerCase().startsWith("bearer ")) bearer = h.slice(7);
-    } catch { /* fora de contexto de request */ }
-
-    const { data, error } = bearer
-      ? await supabase.auth.getUser(bearer)
-      : await supabase.auth.getUser();
-
-    if (error || !data.user) return null;
-
-    const { data: rolesData } = await supabase
-      .from("user_roles").select("role").eq("user_id", data.user.id);
-    const roles = ((rolesData ?? []) as { role: Role }[]).map((r) => r.role);
-    return {
-      userId: data.user.id,
-      email: data.user.email ?? null,
-      roles,
-      isAdmin: roles.includes("admin"),
-    };
-  },
-);
-```
-
-## Verificação
-
-1. Logar e cair em `/dashboard` (ou `/admin`).
-2. Cabeçalho deve mostrar avatar com iniciais à direita, e ao clicar abre o dropdown com nome/e-mail/badge e "Sair".
-3. Em < 768px, deve aparecer o botão hambúrguer ao lado do avatar abrindo o Sheet com a navegação.
-4. `/login` (deslogado) continua mostrando "Criar conta" como antes.
-
-Nenhuma mudança no `BrandHeader.tsx` é necessária — ele já está correto; só não estava recebendo o usuário de volta.
+5. Validação
+   - Conferir que `/dashboard` depois do login mostra avatar/dropdown/Sair.
+   - Conferir que logout volta para `/login` e o header volta ao modo offline.
