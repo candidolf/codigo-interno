@@ -90,13 +90,9 @@ function Comprar() {
         throw new Error("Código de vendedor inválido. Deixe em branco ou corrija.");
       }
 
-      // Garante que há sessão válida antes de chamar o server fn.
-      // Força refresh para evitar enviar um token quase vencido.
-      let { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session?.refresh_token) {
-        const { data: refreshed } = await supabase.auth.refreshSession();
-        if (refreshed.session) sessionData = { session: refreshed.session };
-      }
+      // Garante que há sessão antes de chamar o server fn. O supabase-js já
+      // refresca o token sozinho — não forçamos refresh aqui.
+      const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session?.access_token) {
         navigate({ to: "/login", search: { redirect: "/comprar" } as any });
         return;

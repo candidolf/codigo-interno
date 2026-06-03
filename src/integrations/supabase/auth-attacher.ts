@@ -16,17 +16,10 @@ export const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
     let token: string | undefined;
     try {
       const { data } = await supabase.auth.getSession();
-      let session = data.session;
-
-      // Refresh proativo se faltar < 60s para expirar.
-      const expiresAt = session?.expires_at ?? 0;
-      const nowSec = Math.floor(Date.now() / 1000);
-      if (session && expiresAt && expiresAt - nowSec < 60) {
-        const { data: refreshed } = await supabase.auth.refreshSession();
-        session = refreshed.session ?? session;
-      }
-
-      token = session?.access_token;
+      // O supabase-js já faz refresh automático em background. Não chamamos
+      // refreshSession() aqui para evitar loops de refresh quando o servidor
+      // rejeita o token (ex.: chaves apontando para projetos diferentes).
+      token = data.session?.access_token;
     } catch (e) {
       console.warn("[attachSupabaseAuth] failed to read session", e);
     }
