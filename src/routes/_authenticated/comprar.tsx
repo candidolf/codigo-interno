@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -8,9 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { toast } from "sonner";
 import { createPurchase } from "@/lib/purchases.functions";
-import { assignSelf } from "@/lib/purchases.functions";
 import { getMyProfile } from "@/lib/profile.functions";
 import { maskCpfCnpj, maskPhone, isValidCpfCnpj } from "@/lib/masks";
 
@@ -22,17 +20,14 @@ export const Route = createFileRoute("/_authenticated/comprar")({
 });
 
 function Comprar() {
-  const navigate = useNavigate();
   const { destinatario: initialDest } = Route.useSearch();
   const buy = useServerFn(createPurchase);
-  const assign = useServerFn(assignSelf);
   const fetchProfile = useServerFn(getMyProfile);
   const { data: profile } = useQuery({
     queryKey: ["my-profile"],
     queryFn: () => fetchProfile(),
     staleTime: 60_000,
   });
-  const [method, setMethod] = useState<"pix" | "card" | "boleto">("pix");
   const [destinatario, setDestinatario] = useState<"eu" | "outro">(initialDest);
   const [sellerCode, setSellerCode] = useState("");
   const [fullName, setFullName] = useState("");
@@ -47,13 +42,6 @@ function Comprar() {
     if (profile.cpfCnpj) setCpfCnpj((v) => v || maskCpfCnpj(profile.cpfCnpj!));
     if (profile.phone) setPhone((v) => v || maskPhone(profile.phone!));
   }, [profile]);
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCcv, setCardCcv] = useState("");
-  const [cardHolderName, setCardHolderName] = useState("");
-  const [cardHolderCpf, setCardHolderCpf] = useState("");
-  const [cardCep, setCardCep] = useState("");
-  const [cardAddrNumber, setCardAddrNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,52 +54,28 @@ function Comprar() {
       const phoneDigits = phone.replace(/\D/g, "");
       if (!fullName.trim()) throw new Error("Informe o nome completo");
       if (!isValidCpfCnpj(cpfDigits)) throw new Error("CPF/CNPJ inválido");
-      const [expMonth, expYearShort] = cardExpiry.split("/");
 
       const res = await buy({
         data: {
-          paymentMethod: method,
           sellerCode: sellerCode || null,
           fullName: fullName.trim(),
           cpfCnpj: cpfDigits,
           phone: phoneDigits || null,
-          card:
-            method === "card"
-              ? {
-                  holderName: cardHolderName.trim() || fullName.trim(),
-                  number: cardNumber.replace(/\D/g, ""),
-                  expiryMonth: (expMonth ?? "").padStart(2, "0"),
-                  expiryYear: expYearShort?.length === 2 ? `20${expYearShort}` : (expYearShort ?? ""),
-                  ccv: cardCcv,
-                  holderCpfCnpj: (cardHolderCpf || cpfCnpj).replace(/\D/g, ""),
-                  holderPostalCode: cardCep.replace(/\D/g, ""),
-                  holderAddressNumber: cardAddrNumber,
-                  holderPhone: phoneDigits || undefined,
-                }
-              : null,
         },
       });
 
-      if (res.status === "pago" && method === "card") {
-        toast.success("Pagamento aprovado");
-        if (destinatario === "eu") {
-          await assign({ data: { purchaseId: res.purchaseId } });
-          navigate({ to: "/teste/$id/intro", params: { id: res.purchaseId } });
-        } else {
-          navigate({ to: "/testes/$id/destinatario", params: { id: res.purchaseId } });
-        }
-        return;
+      // Persiste o destinatário escolhido para usar quando o Asaas redirecionar de volta.
+      try {
+        sessionStorage.setItem(`purchase:${res.purchaseId}:dest`, destinatario);
+      } catch {
+        /* noop */
       }
 
-      // PIX ou Boleto: vai para tela de pagamento pendente
-      navigate({
-        to: "/pagamento/$id",
-        params: { id: res.purchaseId },
-        search: { destinatario },
-      });
+      if (!res.invoiceUrl) throw new Error("Falha ao gerar fatura. Tente novamente.");
+      // Redireciona para a página hospedada do Asaas (PIX, cartão e boleto na mesma tela).
+      window.location.href = res.invoiceUrl;
     } catch (err: any) {
       setError(err?.message ?? "Falha ao processar pagamento.");
-    } finally {
       setLoading(false);
     }
   };
@@ -158,105 +122,11 @@ function Comprar() {
               </div>
             </div>
 
-            <div>
-              <Label className="mb-3 block">Forma de pagamento</Label>
-              <RadioGroup
-                value={method}
-                onValueChange={(v) => setMethod(v as "pix" | "card" | "boleto")}
-                className="grid grid-cols-3 gap-3"
-              >
-                <label className="flex items-center gap-3 p-4 rounded-xl border border-border cursor-pointer hover:bg-secondary/40">
-                  <RadioGroupItem value="pix" /> <span>PIX</span>
-                </label>
-                <label className="flex items-center gap-3 p-4 rounded-xl border border-border cursor-pointer hover:bg-secondary/40">
-                  <RadioGroupItem value="card" /> <span>Cartão</span>
-                </label>
-                <label className="flex items-center gap-3 p-4 rounded-xl border border-border cursor-pointer hover:bg-secondary/40">
-                  <RadioGroupItem value="boleto" /> <span>Boleto</span>
-                </label>
-              </RadioGroup>
-            </div>
-            {method === "card" && (
-              <div className="space-y-3 p-4 rounded-xl border border-border">
-                <div className="space-y-2">
-                  <Label>Número do cartão</Label>
-                  <Input
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, "").slice(0, 19))}
-                    placeholder="0000 0000 0000 0000"
-                    inputMode="numeric"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Validade</Label>
-                    <Input
-                      value={cardExpiry}
-                      onChange={(e) => {
-                        const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-                        setCardExpiry(v.length > 2 ? `${v.slice(0, 2)}/${v.slice(2)}` : v);
-                      }}
-                      placeholder="MM/AA"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>CVV</Label>
-                    <Input
-                      value={cardCcv}
-                      onChange={(e) => setCardCcv(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      placeholder="123"
-                      inputMode="numeric"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Nome impresso no cartão</Label>
-                  <Input value={cardHolderName} onChange={(e) => setCardHolderName(e.target.value)} placeholder="Igual ao cartão" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>CPF/CNPJ do titular</Label>
-                    <Input
-                      value={cardHolderCpf}
-                      onChange={(e) => setCardHolderCpf(maskCpfCnpj(e.target.value))}
-                      placeholder="Se diferente do pagador"
-                      inputMode="numeric"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>CEP do titular</Label>
-                    <Input
-                      value={cardCep}
-                      onChange={(e) => setCardCep(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                      placeholder="00000-000"
-                      inputMode="numeric"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Número do endereço</Label>
-                  <Input value={cardAddrNumber} onChange={(e) => setCardAddrNumber(e.target.value)} placeholder="Ex.: 123" required />
-                </div>
-              </div>
-            )}
-            {method === "boleto" && (
-              <Alert>
-                <AlertDescription>
-                  O boleto vence em 3 dias. A compra será liberada após a compensação (1 a 2 dias úteis).
-                </AlertDescription>
-              </Alert>
-            )}
-            {method === "pix" && (
-              <Alert>
-                <AlertDescription>
-                  Após confirmar, você verá o QR Code e o copia-e-cola PIX. A liberação é automática.
-                </AlertDescription>
-              </Alert>
-            )}
+            <Alert>
+              <AlertDescription>
+                Você será direcionado a uma página segura do Asaas para escolher entre PIX, cartão de crédito ou boleto. A liberação do teste é automática após a confirmação.
+              </AlertDescription>
+            </Alert>
             <div className="space-y-2 pt-2 border-t border-border">
               <Label className="flex items-center gap-2">
                 Código do vendedor <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
@@ -279,10 +149,10 @@ function Comprar() {
               <span className="text-gradient-brand">R$ 29,90</span>
             </div>
             <GradientButton type="submit" className="w-full mt-6 cursor-pointer" disabled={loading}>
-              {loading ? "Processando..." : "Pagar agora"}
+              {loading ? "Processando..." : "Ir para pagamento"}
             </GradientButton>
             <p className="text-xs text-muted-foreground mt-3 text-center">
-              Pagamento processado pelo Asaas (sandbox).
+              Pagamento processado pelo Asaas em ambiente seguro.
             </p>
           </aside>
         </form>

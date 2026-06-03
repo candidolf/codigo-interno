@@ -1,26 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-
-const cardSchema = z.object({
-  holderName: z.string().min(2).max(120),
-  number: z.string().regex(/^\d{13,19}$/),
-  expiryMonth: z.string().regex(/^\d{2}$/),
-  expiryYear: z.string().regex(/^\d{4}$/),
-  ccv: z.string().regex(/^\d{3,4}$/),
-  holderCpfCnpj: z.string().regex(/^\d{11}$|^\d{14}$/),
-  holderPostalCode: z.string().regex(/^\d{8}$/),
-  holderAddressNumber: z.string().min(1).max(20),
-  holderPhone: z.string().regex(/^\d{10,11}$/).optional(),
-});
+import { getRequestHeader } from "@tanstack/react-start/server";
 
 const createInput = z.object({
-  paymentMethod: z.enum(["pix", "card", "boleto"]).default("pix"),
   sellerCode: z.string().trim().max(64).optional().nullable(),
   fullName: z.string().trim().min(2).max(120),
   cpfCnpj: z.string().regex(/^\d{11}$|^\d{14}$/),
   phone: z.string().regex(/^\d{10,11}$/).optional().nullable(),
-  card: cardSchema.optional().nullable(),
 });
 
 export const createPurchase = createServerFn({ method: "POST" })
@@ -29,10 +16,10 @@ export const createPurchase = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId, userEmail } = context;
     const asaas = await import("./asaas.server");
-
-    if (data.paymentMethod === "card" && !data.card) {
-      throw new Error("Dados do cartão são obrigatórios");
-    }
+    const host = getRequestHeader("host") ?? null;
+    const proto = getRequestHeader("x-forwarded-proto") ?? "https";
+    const origin = process.env.APP_BASE_URL || (host ? `${proto}://${host}` : "");
+    const cfg = asaas.getAsaasConfig(host);
 
     // 1) Cria/recupera customer no Asaas
     const { data: profile } = await supabase
@@ -43,7 +30,7 @@ export const createPurchase = createServerFn({ method: "POST" })
 
     let customerId = profile?.asaas_customer_id as string | undefined;
     if (!customerId) {
-      const customer = await asaas.createCustomer({
+      const customer = await asaas.createCustomer(cfg, {
         name: data.fullName,
         cpfCnpj: data.cpfCnpj,
         email: userEmail ?? undefined,
@@ -70,7 +57,7 @@ export const createPurchase = createServerFn({ method: "POST" })
         status: "aguardando_pagamento",
         amount_cents: 2990,
         seller_code: data.sellerCode || null,
-        payment_method: data.paymentMethod,
+        payment_method: "hosted",
         simulated: false,
       })
       .select("id")
@@ -80,40 +67,22 @@ export const createPurchase = createServerFn({ method: "POST" })
       throw new Error(error?.message ?? "Falha ao criar compra");
     }
 
-    // 3) Cria payment no Asaas
-    const billingType =
-      data.paymentMethod === "pix" ? "PIX" :
-      data.paymentMethod === "card" ? "CREDIT_CARD" : "BOLETO";
-    const dueDate = asaas.dueDateFromNow(billingType === "PIX" ? 1 : 3);
+    // 3) Cria payment no Asaas (fatura unificada: cliente escolhe PIX/Cartão/Boleto na página do Asaas)
+    const dueDate = asaas.dueDateFromNow(3);
+    const successUrl = origin
+      ? `${origin}/pagamento/${purchase.id}`
+      : `https://codigo-interno.lovable.app/pagamento/${purchase.id}`;
 
     let payment: Awaited<ReturnType<typeof asaas.createPayment>>;
     try {
-      payment = await asaas.createPayment({
+      payment = await asaas.createPayment(cfg, {
         customer: customerId,
-        billingType,
+        billingType: "UNDEFINED",
         value: 29.9,
         dueDate,
         description: "Teste Código Interno",
         externalReference: purchase.id,
-        ...(data.card && billingType === "CREDIT_CARD"
-          ? {
-              creditCard: {
-                holderName: data.card.holderName,
-                number: data.card.number,
-                expiryMonth: data.card.expiryMonth,
-                expiryYear: data.card.expiryYear,
-                ccv: data.card.ccv,
-              },
-              creditCardHolderInfo: {
-                name: data.card.holderName,
-                email: userEmail ?? "",
-                cpfCnpj: data.card.holderCpfCnpj,
-                postalCode: data.card.holderPostalCode,
-                addressNumber: data.card.holderAddressNumber,
-                phone: data.card.holderPhone,
-              },
-            }
-          : {}),
+        callback: { successUrl, autoRedirect: true },
       });
     } catch (err) {
       await supabase
@@ -123,51 +92,22 @@ export const createPurchase = createServerFn({ method: "POST" })
       throw err;
     }
 
-    // 4) PIX: busca QR code
-    let pixQrCode: string | null = null;
-    let pixCopyPaste: string | null = null;
-    if (billingType === "PIX") {
-      const qr = await asaas.getPixQrCode(payment.id);
-      pixQrCode = qr.encodedImage;
-      pixCopyPaste = qr.payload;
-    }
-
-    // 5) Persiste payment local
+    // 4) Persiste payment local
     await supabase.from("payments").insert({
       purchase_id: purchase.id,
       asaas_customer_id: customerId,
       asaas_payment_id: payment.id,
-      method: billingType,
+      method: "UNDEFINED",
       status: payment.status,
       invoice_url: payment.invoiceUrl ?? null,
-      boleto_url: payment.bankSlipUrl ?? null,
-      pix_qr_code: pixQrCode,
-      pix_copy_paste: pixCopyPaste,
       due_date: dueDate,
       raw: payment as any,
     });
 
-    // 6) Se cartão já aprovou, marca pago
-    const approvedNow =
-      billingType === "CREDIT_CARD" &&
-      ["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"].includes(payment.status);
-    if (approvedNow) {
-      await supabase
-        .from("test_purchases")
-        .update({ status: "pago", updated_at: new Date().toISOString() })
-        .eq("id", purchase.id);
-    }
-
     return {
       purchaseId: purchase.id,
-      method: billingType,
-      status: approvedNow ? ("pago" as const) : ("aguardando_pagamento" as const),
       asaasPaymentId: payment.id,
       invoiceUrl: payment.invoiceUrl ?? null,
-      boletoUrl: payment.bankSlipUrl ?? null,
-      pixQrCode,
-      pixCopyPaste,
-      dueDate,
     };
   });
 
@@ -178,7 +118,7 @@ export const getPaymentDetails = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: purchase, error } = await supabase
       .from("test_purchases")
-      .select("id, status, payment_method, master_id")
+      .select("id, status, master_id")
       .eq("id", data.purchaseId)
       .single();
     if (error || !purchase) throw new Error("Compra não encontrada");
@@ -186,7 +126,7 @@ export const getPaymentDetails = createServerFn({ method: "POST" })
 
     const { data: payment } = await supabase
       .from("payments")
-      .select("status, invoice_url, boleto_url, pix_qr_code, pix_copy_paste, due_date, method")
+      .select("status, invoice_url, due_date")
       .eq("purchase_id", data.purchaseId)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -194,12 +134,8 @@ export const getPaymentDetails = createServerFn({ method: "POST" })
 
     return {
       purchaseStatus: purchase.status as string,
-      paymentMethod: purchase.payment_method as string | null,
       paymentStatus: payment?.status ?? null,
       invoiceUrl: payment?.invoice_url ?? null,
-      boletoUrl: payment?.boleto_url ?? null,
-      pixQrCode: payment?.pix_qr_code ?? null,
-      pixCopyPaste: payment?.pix_copy_paste ?? null,
       dueDate: payment?.due_date ?? null,
     };
   });
