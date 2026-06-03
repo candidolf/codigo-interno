@@ -33,7 +33,9 @@ function Login() {
     try {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) { setError(translateAuthError(err.message)); return; }
-      // onAuthStateChange no __root invalida as queries; aqui só navegamos.
+      // Aguarda a sessão estar disponível para o BrandHeader/useAuth lerem
+      // imediatamente como logado ao chegar no dashboard.
+      await supabase.auth.getSession();
       const dest = (search.redirect as string) || "/dashboard";
       navigate({ to: dest as any });
     } catch (e: any) {
