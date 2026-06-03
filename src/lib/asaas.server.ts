@@ -1,5 +1,7 @@
 // Asaas Sandbox API client. Server-only.
-const BASE_URL = "https://sandbox.asaas.com/api/v3";
+// Docs: https://docs.asaas.com/docs/authentication-2
+const BASE_URL = "https://api-sandbox.asaas.com/v3";
+const USER_AGENT = "codigo-interno-app";
 
 function apiKey(): string {
   const k = process.env.ASAAS_API_KEY;
@@ -12,6 +14,7 @@ async function asaasFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      "User-Agent": USER_AGENT,
       access_token: apiKey(),
       ...(init.headers ?? {}),
     },
@@ -20,8 +23,11 @@ async function asaasFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   let json: any = null;
   try { json = text ? JSON.parse(text) : null; } catch { /* noop */ }
   if (!res.ok) {
-    const msg = json?.errors?.[0]?.description ?? json?.message ?? `Asaas ${res.status}`;
-    throw new Error(msg);
+    const first = json?.errors?.[0];
+    const code = first?.code ? `[${first.code}] ` : "";
+    const desc = first?.description ?? json?.message ?? text ?? `HTTP ${res.status}`;
+    console.error("[asaas]", res.status, path, json ?? text);
+    throw new Error(`Asaas ${res.status}: ${code}${desc}`);
   }
   return json as T;
 }

@@ -1,96 +1,40 @@
-# Integração Asaas (Sandbox) — substituir Mercado Pago
+# Correções Asaas + pré-preenchimento do checkout
 
-Pagamento único de R$ 29,90 com PIX, cartão de crédito ou boleto via API do Asaas. Substitui completamente as referências a Mercado Pago.
+## Diagnóstico do 401 ("não autorizado")
 
-## 1. Secrets (Supabase)
+Conforme a doc oficial (`https://docs.asaas.com/docs/authentication-2.md`):
 
-Adicionar via tool de secrets:
-- `ASAAS_API_KEY` — chave de sandbox do Asaas
-- `ASAAS_WEBHOOK_TOKEN` — token que o Asaas envia no header `asaas-access-token` do webhook (definido por nós no painel do Asaas)
+- A URL **correta** do sandbox é `https://api-sandbox.asaas.com/v3`. Hoje o código usa `https://sandbox.asaas.com/api/v3`, que é o endpoint legado/descontinuado e devolve 401.
+- O header `User-Agent` passou a ser **obrigatório** para contas root criadas a partir de 11/06/2024 — sem ele a API também responde 401.
+- As chaves de sandbox novas têm prefixo `$aact_hmlg_...`. Se a secret atual for de produção, retorna `invalid_environment`.
 
-URL base fixa no código: `https://sandbox.asaas.com/api/v3`.
+## 1. Ajustar o cliente Asaas (`src/lib/asaas.server.ts`)
 
-## 2. Banco — migration `012_asaas_payments.sql`
+- Trocar `BASE_URL` para `https://api-sandbox.asaas.com/v3`.
+- Adicionar header `User-Agent: "codigo-interno-app"` em todas as chamadas.
+- Melhorar o tratamento de erro: incluir `code` + `description` do primeiro erro do Asaas na mensagem lançada (hoje só pega `description`, mas alguns erros vêm só com `code` — útil para distinguir `invalid_environment`, `invalid_api_key`, etc.).
+- Logar `console.error("[asaas]", status, body)` no caminho de erro para facilitar diagnóstico nos logs do worker.
 
-Ajustar `public.payments` para o modelo Asaas (mantendo histórico):
+## 2. Pré-preencher checkout com dados do master (`/comprar`)
 
-```sql
-alter table public.payments rename column mp_preference_id to asaas_customer_id;
-alter table public.payments rename column mp_payment_id to asaas_payment_id;
-alter table public.payments add column if not exists invoice_url text;
-alter table public.payments add column if not exists pix_qr_code text;
-alter table public.payments add column if not exists pix_copy_paste text;
-alter table public.payments add column if not exists boleto_url text;
-alter table public.payments add column if not exists due_date date;
-```
+- Estender `getMyProfile` (`src/lib/profile.functions.ts`) para retornar também `cpf_cnpj` e `asaas_customer_id` (já existem na tabela).
+- Em `src/routes/_authenticated/comprar.tsx`:
+  - Consumir `useAuth()` (já usa `getCurrentUser` via React Query) **ou** chamar `getMyProfile` via `useQuery` para obter `fullName`, `phone`, `cpfCnpj`.
+  - Inicializar os states `fullName`, `phone`, `cpfCnpj` a partir do profile assim que ele carrega (via `useEffect` que só preenche se o campo ainda estiver vazio — não sobrescreve digitação do usuário).
+  - Para cartão, default do `cardHolderName` (já cai em `fullName` no submit) e `cardHolderCpf` (já cai em `cpfCnpj`) — apenas garantir que os placeholders/UX refletem isso (campos opcionais quando iguais ao pagador).
+- Vale tanto para "Para mim" quanto "Para outra pessoa" — em ambos os casos os dados do **pagador** são do master logado.
 
-Adicionar em `profiles` (para reuso do `customer` Asaas):
-```sql
-alter table public.profiles add column if not exists cpf_cnpj text;
-alter table public.profiles add column if not exists asaas_customer_id text;
-```
+## 3. Validação manual após o deploy
 
-GRANTs já cobertos por migrations anteriores (mesma tabela).
+1. Confirmar com o usuário que a secret `ASAAS_API_KEY` é uma chave de sandbox (`$aact_hmlg_...`). Se for de produção, gerar nova chave em **Integrações → Sandbox** e atualizar a secret.
+2. Abrir `/comprar`: campos Nome, CPF/CNPJ e Telefone aparecem pré-preenchidos.
+3. Pagar com PIX → tela `/pagamento/:id` mostra QR Code (sem 401).
+4. Confirmar pagamento no painel sandbox → webhook → status `pago`.
 
-## 3. Checkout (`/comprar`)
+## Arquivos afetados
 
-Adicionar no formulário:
-- Campo **CPF/CNPJ** (com máscara dinâmica via `src/lib/masks.ts` e validação real de dígitos)
-- Campo **Nome completo** (pré-preenchido com `profile.full_name`)
-- Adicionar opção **Boleto** no `RadioGroup` (PIX | Cartão | Boleto)
-- Quando cartão: campos cartão (número, validade, CVV, nome impresso, CPF do titular)
-- Quando boleto: aviso "vencimento em 3 dias úteis"
+- `src/lib/asaas.server.ts` — URL, User-Agent, mensagem de erro.
+- `src/lib/profile.functions.ts` — retornar `cpf_cnpj`.
+- `src/routes/_authenticated/comprar.tsx` — pré-preenchimento via query.
 
-Após pagar:
-- **PIX** → tela com QR Code + copia-e-cola + polling do status a cada 4s
-- **Cartão** → cobrança imediata; se aprovado, segue para `intro`/`destinatario`
-- **Boleto** → tela com link/visualização do boleto + instruções
-
-## 4. Server functions — `src/lib/purchases.functions.ts`
-
-Reescrever `createPurchase` para:
-1. Validar input ampliado (cpfCnpj, fullName, paymentMethod ∈ pix|card|boleto, dados cartão opcionais)
-2. Criar/obter `customer` no Asaas (`POST /customers`), salvar `asaas_customer_id` no profile
-3. Criar `payment` no Asaas (`POST /payments`) com `externalReference = purchase.id`
-4. Para PIX: chamar `GET /payments/{id}/pixQrCode` e salvar QR
-5. Para Cartão: enviar `creditCard` + `creditCardHolderInfo` no mesmo POST
-6. Gravar linha em `public.payments` e atualizar `test_purchases.status`
-7. Retornar `{ purchaseId, method, status, pixQrCode?, pixCopyPaste?, boletoUrl?, invoiceUrl? }`
-
-Adicionar `getPaymentDetails(purchaseId)` para a tela de PIX/boleto fazer polling.
-
-Remover totalmente a flag `MERCADO_PAGO_ACCESS_TOKEN` e o modo "simulado".
-
-## 5. Webhook — `src/routes/api/public/asaas-webhook.ts`
-
-Server route TanStack (não usaremos Edge Function — segue padrão moderno do projeto):
-- Validar header `asaas-access-token` contra `process.env.ASAAS_WEBHOOK_TOKEN`
-- Validar payload com Zod (`event`, `payment.id`, `payment.status`, `payment.externalReference`)
-- Atualizar `public.payments.status` e mapear para `test_purchases.status`:
-  - `PAYMENT_CONFIRMED` / `PAYMENT_RECEIVED` → `pago`
-  - `PAYMENT_OVERDUE` / `PAYMENT_REFUNDED` / `PAYMENT_DELETED` → `cancelado`
-- Usar `supabaseAdmin` (service role)
-- Responder 200 sempre que processado (Asaas reenvia em caso de erro)
-
-URL pública estável para configurar no painel Asaas:
-`https://project--910449f5-acc5-4f98-825e-af298045f1a4.lovable.app/api/public/asaas-webhook`
-
-## 6. Limpeza Mercado Pago
-
-- Remover `supabase/functions/ef_mp_webhook/`
-- Remover referências a `MERCADO_PAGO_ACCESS_TOKEN`, `mpEnabled`, `simulated` (manter coluna `simulated` no banco por compatibilidade, mas sempre `false`)
-- Remover texto "Mercado Pago ainda não ativo — pagamento simulado" do `/comprar`
-
-## 7. Testes manuais
-
-1. PIX sandbox → confirmar manualmente no painel Asaas → webhook → status `pago` → liberação do teste
-2. Cartão sandbox (`5162306219378829`) → aprovação imediata
-3. Boleto sandbox → confirmar manualmente → webhook
-
-## Detalhes técnicos relevantes
-
-- Asaas API auth: header `access_token: <ASAAS_API_KEY>` (não é Bearer)
-- Endpoints: `POST /customers`, `POST /payments`, `GET /payments/{id}`, `GET /payments/{id}/pixQrCode`
-- Valor enviado em **reais** (number): `value: 29.90`
-- Máscara/validação CPF/CNPJ já requerida pelo project-knowledge — adicionar helpers em `src/lib/masks.ts` se faltar
-- Tudo client-server via `createServerFn`; webhook via server route em `/api/public/*`
+Nenhuma migration necessária (colunas `cpf_cnpj`, `phone`, `full_name` já existem em `profiles`).
