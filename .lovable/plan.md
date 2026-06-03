@@ -1,40 +1,64 @@
-# Correções Asaas + pré-preenchimento do checkout
+## Objetivo
 
-## Diagnóstico do 401 ("não autorizado")
+1. Remover a coleta de dados de cartão do nosso form. Cliente paga na página hospedada do Asaas (`invoiceUrl`), com PIX + cartão + boleto na mesma tela. Sai do escopo PCI-DSS SAQ D.
+2. Separar credenciais por ambiente: usar **sandbox** agora (homologação) e deixar o código pronto para alternar automaticamente para **produção** quando publicarmos.
 
-Conforme a doc oficial (`https://docs.asaas.com/docs/authentication-2.md`):
+## Parte A — Asaas Checkout (redirect)
 
-- A URL **correta** do sandbox é `https://api-sandbox.asaas.com/v3`. Hoje o código usa `https://sandbox.asaas.com/api/v3`, que é o endpoint legado/descontinuado e devolve 401.
-- O header `User-Agent` passou a ser **obrigatório** para contas root criadas a partir de 11/06/2024 — sem ele a API também responde 401.
-- As chaves de sandbox novas têm prefixo `$aact_hmlg_...`. Se a secret atual for de produção, retorna `invalid_environment`.
+### Como funciona
+1. `POST /payments` (já fazemos) retorna `invoiceUrl`.
+2. Redirecionamos o cliente para essa URL.
+3. Cliente escolhe método e paga na página hospedada do Asaas.
+4. Webhook `PAYMENT_CONFIRMED` atualiza o status (já implementado).
+5. Asaas redireciona o cliente de volta via `successUrl` configurado na cobrança.
 
-## 1. Ajustar o cliente Asaas (`src/lib/asaas.server.ts`)
+### Mudanças de código
 
-- Trocar `BASE_URL` para `https://api-sandbox.asaas.com/v3`.
-- Adicionar header `User-Agent: "codigo-interno-app"` em todas as chamadas.
-- Melhorar o tratamento de erro: incluir `code` + `description` do primeiro erro do Asaas na mensagem lançada (hoje só pega `description`, mas alguns erros vêm só com `code` — útil para distinguir `invalid_environment`, `invalid_api_key`, etc.).
-- Logar `console.error("[asaas]", status, body)` no caminho de erro para facilitar diagnóstico nos logs do worker.
+**`src/lib/asaas.server.ts`**
+- `createPayment`: remover envio de `creditCard`, `creditCardHolderInfo`, `remoteIp`.
+- Enviar sempre `billingType: "UNDEFINED"` (cliente escolhe na fatura).
+- Adicionar `callback: { successUrl, autoRedirect: true }` apontando para `{origin}/pagamento/{purchaseId}`.
 
-## 2. Pré-preencher checkout com dados do master (`/comprar`)
+**`src/lib/purchases.functions.ts` — `createPurchase`**
+- Remover do `inputValidator`: `method`, `cardNumber`, `cardCvv`, `cardExpiry`, `cardHolderName`, `cardHolderEmail`, `cardHolderCpf`, `cardHolderPostalCode`, `cardHolderAddressNumber`, `cardHolderPhone`.
+- Manter: `recipient`, `fullName`, `cpfCnpj`, `phone`, `email` (quando "outra pessoa").
+- Retornar `{ purchaseId, invoiceUrl }`.
 
-- Estender `getMyProfile` (`src/lib/profile.functions.ts`) para retornar também `cpf_cnpj` e `asaas_customer_id` (já existem na tabela).
-- Em `src/routes/_authenticated/comprar.tsx`:
-  - Consumir `useAuth()` (já usa `getCurrentUser` via React Query) **ou** chamar `getMyProfile` via `useQuery` para obter `fullName`, `phone`, `cpfCnpj`.
-  - Inicializar os states `fullName`, `phone`, `cpfCnpj` a partir do profile assim que ele carrega (via `useEffect` que só preenche se o campo ainda estiver vazio — não sobrescreve digitação do usuário).
-  - Para cartão, default do `cardHolderName` (já cai em `fullName` no submit) e `cardHolderCpf` (já cai em `cpfCnpj`) — apenas garantir que os placeholders/UX refletem isso (campos opcionais quando iguais ao pagador).
-- Vale tanto para "Para mim" quanto "Para outra pessoa" — em ambos os casos os dados do **pagador** são do master logado.
+**`src/routes/_authenticated/comprar.tsx`**
+- Remover tabs PIX/Cartão/Boleto e todos os campos de cartão/endereço.
+- Manter: destinatário, nome, CPF/CNPJ, telefone, email.
+- Submit: `window.location.href = invoiceUrl`.
+- Botão: "Ir para pagamento".
+- Pré-preenchimento do master continua.
 
-## 3. Validação manual após o deploy
+**`src/routes/_authenticated/pagamento.$id.tsx`**
+- Vira tela de retorno/status pós-pagamento.
+- Remover QR Code, copia-e-cola, link de boleto.
+- Mostrar status + polling (já existe) + "Reabrir fatura" (usa `invoice_url` salvo) se ainda pendente.
 
-1. Confirmar com o usuário que a secret `ASAAS_API_KEY` é uma chave de sandbox (`$aact_hmlg_...`). Se for de produção, gerar nova chave em **Integrações → Sandbox** e atualizar a secret.
-2. Abrir `/comprar`: campos Nome, CPF/CNPJ e Telefone aparecem pré-preenchidos.
-3. Pagar com PIX → tela `/pagamento/:id` mostra QR Code (sem 401).
-4. Confirmar pagamento no painel sandbox → webhook → status `pago`.
+**Webhook**: nenhuma mudança.
 
-## Arquivos afetados
+## Parte B — Sandbox agora, produção depois (sem mexer no código)
 
-- `src/lib/asaas.server.ts` — URL, User-Agent, mensagem de erro.
-- `src/lib/profile.functions.ts` — retornar `cpf_cnpj`.
-- `src/routes/_authenticated/comprar.tsx` — pré-preenchimento via query.
+### Estratégia
+- Usar **dois secrets separados** no Supabase: `ASAAS_API_KEY_SANDBOX` e `ASAAS_API_KEY_PROD` (este último já existe como `ASAAS_API_KEY` — vou renomear conceitualmente).
+- Detectar ambiente em runtime via `process.env.NODE_ENV` (ou via host `request.headers.get('host')`).
+- `asaas.server.ts` escolhe automaticamente:
+  - Se ambiente = produção → `ASAAS_API_KEY_PROD` + `BASE_URL = https://api.asaas.com/v3`.
+  - Senão → `ASAAS_API_KEY_SANDBOX` + `BASE_URL = https://api-sandbox.asaas.com/v3`.
 
-Nenhuma migration necessária (colunas `cpf_cnpj`, `phone`, `full_name` já existem em `profiles`).
+### Mudanças
+- **`src/lib/asaas.server.ts`**: adicionar função `getAsaasConfig()` que retorna `{ apiKey, baseUrl }` conforme o ambiente. Usar nos fetches.
+- **Secrets**: criar `ASAAS_API_KEY_SANDBOX` (novo) e `ASAAS_API_KEY_PROD` (renomear/copiar do `ASAAS_API_KEY` atual). Manter `ASAAS_WEBHOOK_TOKEN` igual (Asaas permite o mesmo token nos dois ambientes; se preferir separar, criar `ASAAS_WEBHOOK_TOKEN_SANDBOX` / `_PROD` da mesma forma).
+
+### Detecção de ambiente
+Vou usar: `const isProd = process.env.NODE_ENV === 'production' && !host.includes('preview') && !host.includes('-dev.')`. Assim:
+- Preview Lovable (`id-preview--*` / `*-dev.lovable.app`) → sandbox.
+- Domínio publicado (`codigo-interno.lovable.app` e custom domain) → produção.
+
+## Passo manual necessário
+Você precisa fornecer a **chave de sandbox do Asaas** (começa com `$aact_hmlg_...`). Vou pedir via tool de secret na sequência.
+
+## Fora de escopo
+- Tokenização (Checkout Transparente).
+- Remover colunas antigas do banco (`pix_qr_code`, `pix_copy_paste`, `boleto_url`) — preserva histórico.
