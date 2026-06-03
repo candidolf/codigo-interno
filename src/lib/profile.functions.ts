@@ -7,7 +7,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
     const { supabase, userId, userEmail } = context;
 
     const [{ data: profile }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("full_name, phone, birth_date, linked_master_id").eq("id", userId).maybeSingle(),
+      supabase.from("profiles").select("full_name, phone, birth_date, linked_master_id, cpf_cnpj, asaas_customer_id").eq("id", userId).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", userId),
     ]);
 
@@ -18,6 +18,8 @@ export const getMyProfile = createServerFn({ method: "GET" })
       phone: profile?.phone ?? null,
       birthDate: profile?.birth_date ?? null,
       linkedMasterId: profile?.linked_master_id ?? null,
+      cpfCnpj: profile?.cpf_cnpj ?? null,
+      asaasCustomerId: profile?.asaas_customer_id ?? null,
       roles: (roles ?? []).map((r) => r.role as "master" | "user" | "admin"),
     };
   });

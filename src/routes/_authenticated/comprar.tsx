@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { createPurchase } from "@/lib/purchases.functions";
 import { assignSelf } from "@/lib/purchases.functions";
+import { getMyProfile } from "@/lib/profile.functions";
 import { maskCpfCnpj, maskPhone, isValidCpfCnpj } from "@/lib/masks";
 
 export const Route = createFileRoute("/_authenticated/comprar")({
@@ -24,12 +26,27 @@ function Comprar() {
   const { destinatario: initialDest } = Route.useSearch();
   const buy = useServerFn(createPurchase);
   const assign = useServerFn(assignSelf);
+  const fetchProfile = useServerFn(getMyProfile);
+  const { data: profile } = useQuery({
+    queryKey: ["my-profile"],
+    queryFn: () => fetchProfile(),
+    staleTime: 60_000,
+  });
   const [method, setMethod] = useState<"pix" | "card" | "boleto">("pix");
   const [destinatario, setDestinatario] = useState<"eu" | "outro">(initialDest);
   const [sellerCode, setSellerCode] = useState("");
   const [fullName, setFullName] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
   const [phone, setPhone] = useState("");
+
+  // Pré-preenche com dados do master (pagador) quando o profile carrega.
+  // Só preenche campos ainda vazios — não sobrescreve o que o usuário já digitou.
+  useEffect(() => {
+    if (!profile) return;
+    if (profile.fullName) setFullName((v) => v || profile.fullName!);
+    if (profile.cpfCnpj) setCpfCnpj((v) => v || maskCpfCnpj(profile.cpfCnpj!));
+    if (profile.phone) setPhone((v) => v || maskPhone(profile.phone!));
+  }, [profile]);
   const [cardNumber, setCardNumber] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCcv, setCardCcv] = useState("");
