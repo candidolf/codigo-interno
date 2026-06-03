@@ -5,10 +5,9 @@ import { useEffect, useState } from "react";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getPaymentDetails, assignSelf } from "@/lib/purchases.functions";
-import { Copy, ExternalLink, Loader2 } from "lucide-react";
+import { ExternalLink, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/pagamento/$id")({
   component: Pagamento,
@@ -21,11 +20,24 @@ const PAID = new Set(["pago", "em_andamento", "concluido", "aguardando_convidado
 
 function Pagamento() {
   const { id } = Route.useParams();
-  const { destinatario } = Route.useSearch();
+  const search = Route.useSearch();
   const navigate = useNavigate();
   const fetchDetails = useServerFn(getPaymentDetails);
   const assign = useServerFn(assignSelf);
   const [routing, setRouting] = useState(false);
+
+  // Recupera destinatário: 1) querystring, 2) sessionStorage salvo no checkout, 3) fallback "eu".
+  const [destinatario, setDestinatario] = useState<"eu" | "outro">(() => {
+    if (search.destinatario) return search.destinatario;
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem(`purchase:${id}:dest`);
+      if (saved === "outro") return "outro";
+    }
+    return "eu";
+  });
+  useEffect(() => {
+    if (search.destinatario) setDestinatario(search.destinatario);
+  }, [search.destinatario]);
 
   const { data } = useQuery({
     queryKey: ["payment", id],
@@ -52,11 +64,6 @@ function Pagamento() {
     })();
   }, [data, destinatario, id, navigate, assign, routing]);
 
-  const copy = async (text: string) => {
-    await navigator.clipboard.writeText(text);
-    toast.success("Copiado");
-  };
-
   return (
     <div className="min-h-screen">
       <BrandHeader />
@@ -72,51 +79,20 @@ function Pagamento() {
           </div>
         )}
 
-        {data?.paymentMethod === "pix" && data.pixQrCode && (
+        {data && !PAID.has(data.purchaseStatus) && data.invoiceUrl && (
           <div className="glass rounded-2xl p-6 mt-8 space-y-4">
-            <h2 className="font-display text-xl font-semibold">Pague com PIX</h2>
-            <div className="bg-white rounded-xl p-4 flex justify-center">
-              <img
-                src={`data:image/png;base64,${data.pixQrCode}`}
-                alt="QR Code PIX"
-                className="w-56 h-56"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-muted-foreground">Copia e cola</label>
-              <div className="flex gap-2">
-                <input
-                  readOnly
-                  value={data.pixCopyPaste ?? ""}
-                  className="flex-1 bg-secondary/40 border border-border rounded-md px-3 py-2 text-xs font-mono"
-                />
-                <Button type="button" variant="secondary" className="cursor-pointer" onClick={() => copy(data.pixCopyPaste ?? "")}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <Alert>
-              <AlertDescription className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Aguardando confirmação...
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
-
-        {data?.paymentMethod === "boleto" && data.boletoUrl && (
-          <div className="glass rounded-2xl p-6 mt-8 space-y-4">
-            <h2 className="font-display text-xl font-semibold">Boleto gerado</h2>
+            <h2 className="font-display text-xl font-semibold">Aguardando confirmação</h2>
             <p className="text-sm text-muted-foreground">
-              Vencimento: {data.dueDate ? new Date(data.dueDate + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+              Se você fechou a aba do Asaas sem concluir, clique abaixo para reabrir a fatura. PIX, cartão e boleto estão disponíveis na mesma tela.
             </p>
-            <GradientButton asChild className="cursor-pointer">
-              <a href={data.boletoUrl} target="_blank" rel="noreferrer">
-                <ExternalLink className="h-4 w-4 mr-2" /> Visualizar boleto
+            <GradientButton asChild className="cursor-pointer w-full sm:w-auto">
+              <a href={data.invoiceUrl} target="_blank" rel="noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" /> Abrir fatura
               </a>
             </GradientButton>
             <Alert>
-              <AlertDescription>
-                Após o pagamento, a compensação pode levar 1 a 2 dias úteis. Esta página atualiza sozinha.
+              <AlertDescription className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Atualizamos esta página automaticamente assim que o pagamento for confirmado.
               </AlertDescription>
             </Alert>
           </div>
