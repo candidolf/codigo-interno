@@ -26,6 +26,17 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       : await supabase.auth.getUser();
 
     if (error || !data.user) {
+      // Diagnóstico: distinguir entre "token não chegou" e "token rejeitado".
+      console.error("[requireSupabaseAuth] reject", {
+        hadBearer: !!bearer,
+        bearerLen: bearer?.length ?? 0,
+        supabaseError: error?.message ?? null,
+      });
+      if (!bearer) {
+        throw new Error(
+          "Unauthorized: token de autenticação não foi enviado. Recarregue a página e tente novamente.",
+        );
+      }
       throw new Error("Unauthorized: sessão expirada. Faça login novamente.");
     }
     return next({
