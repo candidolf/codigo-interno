@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { createPurchase } from "@/lib/purchases.functions";
+import { createPurchase, validateSellerCode } from "@/lib/purchases.functions";
 import { getMyProfile } from "@/lib/profile.functions";
 import { maskCpfCnpj, maskPhone, isValidCpfCnpj } from "@/lib/masks";
 
@@ -23,6 +23,7 @@ function Comprar() {
   const { destinatario: initialDest } = Route.useSearch();
   const buy = useServerFn(createPurchase);
   const fetchProfile = useServerFn(getMyProfile);
+  const checkSeller = useServerFn(validateSellerCode);
   const { data: profile } = useQuery({
     queryKey: ["my-profile"],
     queryFn: () => fetchProfile(),
@@ -30,6 +31,8 @@ function Comprar() {
   });
   const [destinatario, setDestinatario] = useState<"eu" | "outro">(initialDest);
   const [sellerCode, setSellerCode] = useState("");
+  const [sellerStatus, setSellerStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [sellerName, setSellerName] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
   const [phone, setPhone] = useState("");
@@ -45,6 +48,33 @@ function Comprar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Valida código do vendedor (debounced) quando preenchido. Vazio = ok.
+  useEffect(() => {
+    const raw = sellerCode.trim();
+    if (!raw) {
+      setSellerStatus("idle");
+      setSellerName(null);
+      return;
+    }
+    setSellerStatus("checking");
+    const t = setTimeout(async () => {
+      try {
+        const res = await checkSeller({ data: { code: raw } });
+        if (res.valid) {
+          setSellerStatus("valid");
+          setSellerName(res.name ?? null);
+        } else {
+          setSellerStatus("invalid");
+          setSellerName(null);
+        }
+      } catch {
+        setSellerStatus("invalid");
+        setSellerName(null);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [sellerCode, checkSeller]);
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -54,6 +84,9 @@ function Comprar() {
       const phoneDigits = phone.replace(/\D/g, "");
       if (!fullName.trim()) throw new Error("Informe o nome completo");
       if (!isValidCpfCnpj(cpfDigits)) throw new Error("CPF/CNPJ inválido");
+      if (sellerCode.trim() && sellerStatus !== "valid") {
+        throw new Error("Código de vendedor inválido. Deixe em branco ou corrija.");
+      }
 
       const res = await buy({
         data: {
@@ -135,8 +168,23 @@ function Comprar() {
               <Label className="flex items-center gap-2">
                 Código do vendedor <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
               </Label>
-              <Input value={sellerCode} onChange={(e) => setSellerCode(e.target.value)} placeholder="Ex.: VEND-007" />
-              <p className="text-xs text-muted-foreground">Se alguém indicou esta plataforma, informe o código aqui.</p>
+              <Input
+                value={sellerCode}
+                onChange={(e) => setSellerCode(e.target.value.toUpperCase())}
+                placeholder="Ex.: VEND-007"
+              />
+              {sellerStatus === "idle" && (
+                <p className="text-xs text-muted-foreground">Se alguém indicou esta plataforma, informe o código aqui.</p>
+              )}
+              {sellerStatus === "checking" && (
+                <p className="text-xs text-muted-foreground">Verificando código…</p>
+              )}
+              {sellerStatus === "valid" && (
+                <p className="text-xs text-emerald-500">Vendedor: {sellerName}</p>
+              )}
+              {sellerStatus === "invalid" && (
+                <p className="text-xs text-destructive">Código de vendedor não encontrado.</p>
+              )}
             </div>
             {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           </div>

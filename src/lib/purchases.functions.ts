@@ -10,6 +10,23 @@ const createInput = z.object({
   phone: z.string().regex(/^\d{10,11}$/).optional().nullable(),
 });
 
+export const validateSellerCode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ code: z.string().trim().min(1).max(64) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const code = data.code.toUpperCase();
+    const { data: seller } = await supabase
+      .from("sellers")
+      .select("full_name, active")
+      .eq("code", code)
+      .maybeSingle();
+    if (!seller || !seller.active) return { valid: false as const };
+    return { valid: true as const, name: seller.full_name as string };
+  });
+
 export const createPurchase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => createInput.parse(input))
@@ -20,6 +37,21 @@ export const createPurchase = createServerFn({ method: "POST" })
     const proto = getRequestHeader("x-forwarded-proto") ?? "https";
     const origin = process.env.APP_BASE_URL || (host ? `${proto}://${host}` : "");
     const cfg = asaas.getAsaasConfig(host);
+
+    // Valida código de vendedor quando informado (campo opcional)
+    const sellerCodeNormalized = data.sellerCode?.trim()
+      ? data.sellerCode.trim().toUpperCase()
+      : null;
+    if (sellerCodeNormalized) {
+      const { data: seller } = await supabase
+        .from("sellers")
+        .select("active")
+        .eq("code", sellerCodeNormalized)
+        .maybeSingle();
+      if (!seller || !seller.active) {
+        throw new Error("Código de vendedor inválido");
+      }
+    }
 
     // 1) Cria/recupera customer no Asaas
     const { data: profile } = await supabase
@@ -56,7 +88,7 @@ export const createPurchase = createServerFn({ method: "POST" })
         master_id: userId,
         status: "aguardando_pagamento",
         amount_cents: 2990,
-        seller_code: data.sellerCode || null,
+        seller_code: sellerCodeNormalized,
         payment_method: "hosted",
         simulated: false,
       })
