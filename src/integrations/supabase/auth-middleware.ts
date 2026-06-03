@@ -1,5 +1,6 @@
 import { createMiddleware } from "@tanstack/react-start";
 import { createServerSupabase, getSupabaseAdmin } from "./client.server";
+import { getRequestHeader } from "@tanstack/react-start/server";
 
 /**
  * Middleware for server fns that require an authenticated user.
@@ -9,9 +10,23 @@ import { createServerSupabase, getSupabaseAdmin } from "./client.server";
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
     const supabase = createServerSupabase();
-    const { data, error } = await supabase.auth.getUser();
+
+    // Prefer Authorization: Bearer (attached by client middleware) — robust
+    // em iframe/preview onde cookies podem não atravessar a fronteira.
+    let bearer: string | undefined;
+    try {
+      const h = getRequestHeader("authorization") ?? getRequestHeader("Authorization");
+      if (h?.toLowerCase().startsWith("bearer ")) bearer = h.slice(7);
+    } catch {
+      /* fora de contexto de request */
+    }
+
+    const { data, error } = bearer
+      ? await supabase.auth.getUser(bearer)
+      : await supabase.auth.getUser();
+
     if (error || !data.user) {
-      throw new Error("Unauthorized");
+      throw new Error("Unauthorized: sessão expirada. Faça login novamente.");
     }
     return next({
       context: {

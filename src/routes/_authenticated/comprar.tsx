@@ -75,7 +75,11 @@ function Comprar() {
       // Redireciona para a página hospedada do Asaas (PIX, cartão e boleto na mesma tela).
       window.location.href = res.invoiceUrl;
     } catch (err: any) {
-      setError(err?.message ?? "Falha ao processar pagamento.");
+      const msg = err?.message ?? "Falha ao processar pagamento.";
+      const friendly = /unauthorized/i.test(msg)
+        ? "Sua sessão expirou. Saia e entre novamente para continuar."
+        : msg;
+      setError(friendly);
       setLoading(false);
     }
   };

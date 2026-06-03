@@ -1,64 +1,26 @@
 ## Objetivo
+Corrigir o erro **Unauthorized** ao clicar em **Ir para pagamento**, para que a compra crie a fatura no Asaas e abra o checkout hospedado com segurança.
 
-1. Remover a coleta de dados de cartão do nosso form. Cliente paga na página hospedada do Asaas (`invoiceUrl`), com PIX + cartão + boleto na mesma tela. Sai do escopo PCI-DSS SAQ D.
-2. Separar credenciais por ambiente: usar **sandbox** agora (homologação) e deixar o código pronto para alternar automaticamente para **produção** quando publicarmos.
+## Diagnóstico provável
+O erro aparece antes de abrir o checkout porque a chamada protegida `createPurchase` está chegando ao servidor sem autenticação válida. O projeto já tem um middleware para anexar o token do usuário, mas o middleware de autenticação do servidor ainda depende de `supabase.auth.getUser()` via cliente SSR; em alguns contextos de preview/iframe isso pode não reconhecer corretamente o bearer enviado e retorna `Unauthorized`.
 
-## Parte A — Asaas Checkout (redirect)
+## Plano de correção
+1. **Fortalecer a autenticação dos server functions**
+   - Ajustar `requireSupabaseAuth` para ler explicitamente o header `Authorization: Bearer ...` recebido na requisição.
+   - Validar o usuário com esse token quando ele existir.
+   - Manter fallback por cookies para não quebrar outros fluxos.
 
-### Como funciona
-1. `POST /payments` (já fazemos) retorna `invoiceUrl`.
-2. Redirecionamos o cliente para essa URL.
-3. Cliente escolhe método e paga na página hospedada do Asaas.
-4. Webhook `PAYMENT_CONFIRMED` atualiza o status (já implementado).
-5. Asaas redireciona o cliente de volta via `successUrl` configurado na cobrança.
+2. **Garantir cliente de banco autenticado corretamente**
+   - Continuar usando o cliente atual com RLS, mas garantir que o token do usuário seja aplicado nas queries feitas por `createPurchase`.
+   - Preservar a separação segura: chave de serviço somente no servidor/admin, nunca no cliente.
 
-### Mudanças de código
+3. **Melhorar a mensagem de erro no checkout**
+   - Trocar o texto genérico `Unauthorized` por uma mensagem amigável: pedir para entrar novamente se a sessão expirou.
+   - Não expor detalhes técnicos do backend na tela.
 
-**`src/lib/asaas.server.ts`**
-- `createPayment`: remover envio de `creditCard`, `creditCardHolderInfo`, `remoteIp`.
-- Enviar sempre `billingType: "UNDEFINED"` (cliente escolhe na fatura).
-- Adicionar `callback: { successUrl, autoRedirect: true }` apontando para `{origin}/pagamento/{purchaseId}`.
+4. **Verificar o próximo possível bloqueio do Asaas**
+   - Depois da autenticação corrigida, se o Asaas responder erro de credencial, o ajuste esperado será cadastrar a secret `ASAAS_API_KEY_SANDBOX` correta.
+   - O código já está preparado para usar sandbox no preview e produção no domínio publicado.
 
-**`src/lib/purchases.functions.ts` — `createPurchase`**
-- Remover do `inputValidator`: `method`, `cardNumber`, `cardCvv`, `cardExpiry`, `cardHolderName`, `cardHolderEmail`, `cardHolderCpf`, `cardHolderPostalCode`, `cardHolderAddressNumber`, `cardHolderPhone`.
-- Manter: `recipient`, `fullName`, `cpfCnpj`, `phone`, `email` (quando "outra pessoa").
-- Retornar `{ purchaseId, invoiceUrl }`.
-
-**`src/routes/_authenticated/comprar.tsx`**
-- Remover tabs PIX/Cartão/Boleto e todos os campos de cartão/endereço.
-- Manter: destinatário, nome, CPF/CNPJ, telefone, email.
-- Submit: `window.location.href = invoiceUrl`.
-- Botão: "Ir para pagamento".
-- Pré-preenchimento do master continua.
-
-**`src/routes/_authenticated/pagamento.$id.tsx`**
-- Vira tela de retorno/status pós-pagamento.
-- Remover QR Code, copia-e-cola, link de boleto.
-- Mostrar status + polling (já existe) + "Reabrir fatura" (usa `invoice_url` salvo) se ainda pendente.
-
-**Webhook**: nenhuma mudança.
-
-## Parte B — Sandbox agora, produção depois (sem mexer no código)
-
-### Estratégia
-- Usar **dois secrets separados** no Supabase: `ASAAS_API_KEY_SANDBOX` e `ASAAS_API_KEY_PROD` (este último já existe como `ASAAS_API_KEY` — vou renomear conceitualmente).
-- Detectar ambiente em runtime via `process.env.NODE_ENV` (ou via host `request.headers.get('host')`).
-- `asaas.server.ts` escolhe automaticamente:
-  - Se ambiente = produção → `ASAAS_API_KEY_PROD` + `BASE_URL = https://api.asaas.com/v3`.
-  - Senão → `ASAAS_API_KEY_SANDBOX` + `BASE_URL = https://api-sandbox.asaas.com/v3`.
-
-### Mudanças
-- **`src/lib/asaas.server.ts`**: adicionar função `getAsaasConfig()` que retorna `{ apiKey, baseUrl }` conforme o ambiente. Usar nos fetches.
-- **Secrets**: criar `ASAAS_API_KEY_SANDBOX` (novo) e `ASAAS_API_KEY_PROD` (renomear/copiar do `ASAAS_API_KEY` atual). Manter `ASAAS_WEBHOOK_TOKEN` igual (Asaas permite o mesmo token nos dois ambientes; se preferir separar, criar `ASAAS_WEBHOOK_TOKEN_SANDBOX` / `_PROD` da mesma forma).
-
-### Detecção de ambiente
-Vou usar: `const isProd = process.env.NODE_ENV === 'production' && !host.includes('preview') && !host.includes('-dev.')`. Assim:
-- Preview Lovable (`id-preview--*` / `*-dev.lovable.app`) → sandbox.
-- Domínio publicado (`codigo-interno.lovable.app` e custom domain) → produção.
-
-## Passo manual necessário
-Você precisa fornecer a **chave de sandbox do Asaas** (começa com `$aact_hmlg_...`). Vou pedir via tool de secret na sequência.
-
-## Fora de escopo
-- Tokenização (Checkout Transparente).
-- Remover colunas antigas do banco (`pix_qr_code`, `pix_copy_paste`, `boleto_url`) — preserva histórico.
+## Resultado esperado
+Ao clicar em **Ir para pagamento**, a sessão será reconhecida, a compra será criada, a fatura será gerada no Asaas e o usuário será redirecionado para a página segura do Asaas.
