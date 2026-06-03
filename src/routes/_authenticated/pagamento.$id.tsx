@@ -11,9 +11,11 @@ import { ExternalLink, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/pagamento/$id")({
   component: Pagamento,
-  validateSearch: (search: Record<string, unknown>) => ({
-    destinatario: (search.destinatario === "outro" ? "outro" : "eu") as "eu" | "outro",
-  }),
+  validateSearch: (search: Record<string, unknown>): { destinatario?: "eu" | "outro" } => {
+    if (search.destinatario === "outro") return { destinatario: "outro" };
+    if (search.destinatario === "eu") return { destinatario: "eu" };
+    return {};
+  },
 });
 
 const PAID = new Set(["pago", "em_andamento", "concluido", "aguardando_convidado"]);
