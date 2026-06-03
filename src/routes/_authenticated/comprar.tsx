@@ -159,11 +159,6 @@ function Comprar() {
               </div>
             </div>
 
-            <Alert>
-              <AlertDescription>
-                Você será direcionado a uma página segura do Asaas para escolher entre PIX, cartão de crédito ou boleto. A liberação do teste é automática após a confirmação.
-              </AlertDescription>
-            </Alert>
             <div className="space-y-2 pt-2 border-t border-border">
               <Label className="flex items-center gap-2">
                 Código do vendedor <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
@@ -189,24 +184,31 @@ function Comprar() {
             {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           </div>
 
-          <aside className="glass rounded-2xl p-6 h-fit">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Resumo</p>
-            <div className="flex justify-between mt-4">
-              <span>1 Teste Código Interno</span>
-              <span>R$ 29,90</span>
-            </div>
-            <div className="border-t border-border my-4" />
-            <div className="flex justify-between font-display font-bold text-xl">
-              <span>Total</span>
-              <span className="text-gradient-brand">R$ 29,90</span>
-            </div>
-            <GradientButton type="submit" className="w-full mt-6 cursor-pointer" disabled={loading}>
-              {loading ? "Processando..." : "Ir para pagamento"}
-            </GradientButton>
-            <p className="text-xs text-muted-foreground mt-3 text-center">
-              Pagamento processado pelo Asaas em ambiente seguro.
-            </p>
-          </aside>
+          <div className="h-fit space-y-4">
+            <aside className="glass rounded-2xl p-6">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">Resumo</p>
+              <div className="flex justify-between mt-4">
+                <span>1 Teste Código Interno</span>
+                <span>R$ 29,90</span>
+              </div>
+              <div className="border-t border-border my-4" />
+              <div className="flex justify-between font-display font-bold text-xl">
+                <span>Total</span>
+                <span className="text-gradient-brand">R$ 29,90</span>
+              </div>
+              <GradientButton type="submit" className="w-full mt-6 cursor-pointer" disabled={loading}>
+                {loading ? "Processando..." : "Ir para pagamento"}
+              </GradientButton>
+              <p className="text-xs text-muted-foreground mt-3 text-center">
+                Pagamento processado pelo Asaas em ambiente seguro.
+              </p>
+            </aside>
+            <Alert>
+              <AlertDescription>
+                Você será direcionado a uma página segura do Asaas para escolher entre PIX, cartão de crédito ou boleto. A liberação do teste é automática após a confirmação.
+              </AlertDescription>
+            </Alert>
+          </div>
         </form>
       </main>
     </div>

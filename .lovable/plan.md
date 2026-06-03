@@ -1,32 +1,22 @@
-## Objetivo
+## 1) Checkout — mover mensagem para abaixo do card de Resumo
 
-No checkout (`/comprar`), validar que o **código do vendedor** existe na tabela `sellers` quando preenchido. Campo continua **opcional** — se vazio, segue normalmente.
+Arquivo: `src/routes/_authenticated/comprar.tsx`
 
-## Mudanças
+- Remover o `<Alert>` "Você será direcionado a uma página segura do Asaas…" de dentro da coluna esquerda (form).
+- Renderizá-lo **abaixo da `<aside>` de Resumo**, dentro da mesma coluna lateral (continua sendo `h-fit` o card; o Alert fica logo abaixo dele, com `mt-4`).
+- Em telas pequenas (1 coluna), o Alert aparece naturalmente depois do resumo. Nenhuma mudança de estilo no resto do form.
 
-### 1. Nova server function: `validateSellerCode`
-Arquivo: `src/lib/purchases.functions.ts`
+## 2) Header — "Sair" encerra sessão e vai para `/login`
 
-- Recebe `{ code: string }`, retorna `{ valid: boolean, name?: string }`.
-- Consulta `sellers` por `code` (uppercase), `active = true`.
-- Usa `requireSupabaseAuth` (consistente com as outras funcs do arquivo).
+### `src/components/brand/BrandHeader.tsx`
+- No `onLogout`:
+  - Aguardar `signOut()`.
+  - Invalidar as queries de auth/profile no `queryClient` para limpar estado em cache (`["auth","me"]`, `["profile","me"]`, `["my-profile"]`).
+  - Navegar para `/login` (em vez de `/`), usando `replace: true` para não voltar via "back" para área autenticada.
 
-### 2. Validação no servidor em `createPurchase`
-Mesmo arquivo:
-- Se `sellerCode` foi enviado e não-vazio, consultar `sellers` e abortar com mensagem clara ("Código de vendedor inválido") caso não exista ou esteja inativo.
-- Normalizar para uppercase antes de gravar em `test_purchases.seller_code`.
-
-### 3. Validação no cliente em `comprar.tsx`
-- Adicionar estado `sellerStatus: "idle" | "checking" | "valid" | "invalid"` e `sellerName`.
-- `onBlur` do input (e quando o campo for não-vazio antes do submit): chamar `validateSellerCode` via `useServerFn`, com debounce simples.
-- Feedback inline abaixo do campo:
-  - Vazio → nenhuma mensagem (mantém o texto "Se alguém indicou…").
-  - Checando → "Verificando código…".
-  - Válido → "Vendedor: {nome}" em verde.
-  - Inválido → "Código de vendedor não encontrado" em vermelho.
-- No `onSubmit`: se `sellerCode` preenchido e `sellerStatus !== "valid"`, bloquear envio com `setError("Código de vendedor inválido. Deixe em branco ou corrija.")`.
-- Campo continua sem `required`.
+### `src/hooks/use-auth.ts`
+- Ajustar `signOut` para também limpar/invalidar `["auth","me"]` via `queryClient` (usar `useQueryClient`) e retornar somente após `supabase.auth.signOut()` resolver. Isso garante que `isAuthenticated` vire `false` imediatamente, evitando que o guard de `_authenticated` redirecione antes da navegação manual para `/login` causar um flicker.
 
 ## Fora de escopo
-- Sem mudanças visuais no resto do form.
-- Sem mudanças na lógica de pagamento Asaas.
+- Não alterar layout/visual do card de resumo.
+- Não mexer em outras rotas/headers.
