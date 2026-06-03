@@ -42,7 +42,7 @@ export function BrandHeader() {
 
   const onLogout = async () => {
     await signOut();
-    navigate({ to: "/" });
+    navigate({ to: "/login", replace: true });
   };
 
   const fetchProfile = useServerFn(getMyProfile);
