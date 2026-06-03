@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { createPurchase, validateSellerCode } from "@/lib/purchases.functions";
 import { getMyProfile } from "@/lib/profile.functions";
 import { maskCpfCnpj, maskPhone, isValidCpfCnpj } from "@/lib/masks";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/comprar")({
   component: Comprar,
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/_authenticated/comprar")({
 
 function Comprar() {
   const { destinatario: initialDest } = Route.useSearch();
+  const navigate = useNavigate();
   const buy = useServerFn(createPurchase);
   const fetchProfile = useServerFn(getMyProfile);
   const checkSeller = useServerFn(validateSellerCode);
@@ -86,6 +88,13 @@ function Comprar() {
       if (!isValidCpfCnpj(cpfDigits)) throw new Error("CPF/CNPJ inválido");
       if (sellerCode.trim() && sellerStatus !== "valid") {
         throw new Error("Código de vendedor inválido. Deixe em branco ou corrija.");
+      }
+
+      // Garante que há sessão válida antes de chamar o server fn.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        navigate({ to: "/login", search: { redirect: "/comprar" } as any });
+        return;
       }
 
       const res = await buy({
