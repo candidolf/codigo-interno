@@ -99,7 +99,7 @@ export const createPurchase = createServerFn({ method: "POST" })
         method: "SIMULATED",
         status: "CONFIRMED",
         invoice_url: null,
-        due_date: asaasDueDateFromNow(0),
+        due_date: new Date().toISOString().slice(0, 10),
         raw: { simulated: true } as any,
       });
 
