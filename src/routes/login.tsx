@@ -73,6 +73,11 @@ function Login() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            <div className="text-right">
+              <Link to="/recuperar-senha" className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer">
+                Esqueci minha senha
+              </Link>
+            </div>
           </div>
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <GradientButton type="submit" className="w-full cursor-pointer" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</GradientButton>
