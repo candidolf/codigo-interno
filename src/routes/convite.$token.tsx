@@ -116,7 +116,7 @@ function Convite() {
           </GradientButton>
           {mode === "login" && (
             <div className="text-center text-sm">
-              <Link to="/login" className="text-muted-foreground hover:text-foreground underline cursor-pointer">
+              <Link to="/recuperar-senha" className="text-muted-foreground hover:text-foreground underline cursor-pointer">
                 Esqueci minha senha
               </Link>
             </div>

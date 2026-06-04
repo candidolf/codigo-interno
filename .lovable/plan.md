@@ -1,52 +1,67 @@
 
 ## Objetivo
 
-1. Desligar **temporariamente** a integração com o Asaas. Ao clicar em "Ir para pagamento" em `/comprar`, simular pagamento aprovado e seguir o fluxo normal pós-pagamento.
-2. Quando houver `seller_code` **válido**, calcular e persistir a **comissão do vendedor** no momento da compra (snapshot), garantindo cálculo correto mesmo se a `commission_rate` mudar depois.
+Implementar o fluxo completo de "Esqueci minha senha" usando Supabase Auth — sem dependências externas, sem novos secrets. Os e-mails usam o template padrão do Supabase (a customização visual com Lovable Emails fica fora de escopo até o usuário pedir).
 
-## Escopo
+## Fluxo
 
-Fluxo de criação de compra (`createPurchase`) + tela `/comprar`. Webhook, telas de pagamento e liberação de teste continuam funcionando. Tela admin de comissões passa a usar o valor persistido.
+1. Usuário clica em "Esqueci minha senha" em `/login` → vai para `/recuperar-senha`.
+2. Informa o e-mail → recebe link de recuperação do Supabase.
+3. Link abre `/redefinir-senha` (já autenticado via token de recovery do Supabase).
+4. Define nova senha → redireciona para `/dashboard`.
 
 ## Mudanças
 
-### 1. Migration nova `013_purchase_commission.sql`
+### 1. `src/routes/recuperar-senha.tsx` (novo)
 
-Adicionar à `public.test_purchases`:
-- `commission_rate numeric(5,4)` — snapshot da taxa no momento da compra (null quando sem vendedor).
-- `commission_cents integer` — valor calculado e congelado (null quando sem vendedor).
+- Form com campo de e-mail (validação básica).
+- Chama `supabase.auth.resetPasswordForEmail(email, { redirectTo: ${window.location.origin}/redefinir-senha })`.
+- Mensagem genérica de sucesso ("Se o e-mail existir, enviamos um link...") — não revela se o e-mail está cadastrado.
+- Link "Voltar para o login".
+- `head()` com title/description próprios.
 
-Atualizar `public.admin_monthly_commissions(month_start date)` para somar `coalesce(p.commission_cents, round(p.amount_cents * s.commission_rate))` — assim compras antigas seguem usando a rate atual e as novas usam o snapshot.
+### 2. `src/routes/redefinir-senha.tsx` (novo)
 
-### 2. `src/lib/purchases.functions.ts` — `createPurchase`
+- Detecta sessão de recovery: ao montar, escuta `supabase.auth.onAuthStateChange` para evento `PASSWORD_RECOVERY` e/ou valida `supabase.auth.getSession()`.
+- Se não houver sessão de recovery válida, mostra alerta "Link inválido ou expirado" + botão para `/recuperar-senha`.
+- Form com **nova senha** + **confirmar senha** (toggle mostrar/ocultar, igual `/login`).
+- Validação: mínimo 8 caracteres, senhas iguais.
+- Chama `supabase.auth.updateUser({ password })`.
+- Sucesso → toast + `navigate({ to: "/dashboard" })`.
+- Tratamento de erro via `translateAuthError`.
 
-**Bypass do Asaas (controlado por `ASAAS_BYPASS=true`, default ligado agora):**
-- Pular `createCustomer` e `createPayment`.
-- Inserir `test_purchases` com `status = "pago"`, `simulated = true`, `payment_method = "simulated"`.
-- Inserir `payments` com `asaas_payment_id = "SIMULATED-<purchaseId>"`, `status = "CONFIRMED"`, `method = "SIMULATED"`, `invoice_url = null`.
-- Retornar `{ purchaseId, asaasPaymentId, invoiceUrl: null }`.
+### 3. `src/routes/login.tsx`
 
-**Comissão (vale para bypass e fluxo real):**
-- Na validação do `sellerCodeNormalized`, além de checar `active`, **também ler `commission_rate`** do `sellers`.
-- Calcular `commissionCents = Math.round(amount_cents * commission_rate)`.
-- Gravar `commission_rate` e `commission_cents` no insert de `test_purchases`.
-- Sem `seller_code`: ambos ficam `null`.
+- Adicionar `<Link to="/recuperar-senha">Esqueci minha senha</Link>` abaixo do campo de senha (alinhado à direita, estilo discreto).
 
-### 3. `src/routes/_authenticated/comprar.tsx` — `onSubmit`
+### 4. `src/routes/convite.$token.tsx`
 
-Se `invoiceUrl` vier `null` (modo simulado), `navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } })` em vez de `window.location.href`. A página `pagamento.$id.tsx` já detecta status pago via polling e segue o fluxo.
+- O texto "Esqueci minha senha" já existe (linha 120) — transformar em `<Link to="/recuperar-senha">` se ainda não for.
 
-### 4. `src/routes/_authenticated/admin/comissoes.tsx`
+### 5. `src/routes/__root.tsx` — sem mudanças necessárias
 
-Sem mudanças no front — a RPC já retorna `commission_cents` consolidado (agora usando o snapshot quando disponível).
+O listener global de `onAuthStateChange` já existente trata `PASSWORD_RECOVERY` como qualquer outra mudança de sessão (invalida queries). A página `/redefinir-senha` adiciona seu próprio handler local apenas para detectar o evento durante o mount.
 
-## Como religar o Asaas depois
+## Configuração necessária no Supabase (informar ao usuário, sem código)
 
-Remover/zerar a env `ASAAS_BYPASS`. Cálculo de comissão permanece (é independente do bypass).
+No Dashboard do novo Supabase:
+- **Authentication → URL Configuration → Redirect URLs**: adicionar
+  - `https://codigo-interno.lovable.app/redefinir-senha`
+  - `https://id-preview--910449f5-acc5-4f98-825e-af298045f1a4.lovable.app/redefinir-senha`
+  - `http://localhost:*/redefinir-senha` (para dev, se aplicável)
+- **Authentication → Email Templates → Reset Password**: o template padrão já funciona; o link aponta para a URL acima.
+
+Sem essa configuração, o link do e-mail é rejeitado pelo Supabase.
 
 ## Validação
 
-1. `/comprar` sem código → paga simulado, `commission_*` null, segue para intro do teste.
-2. `/comprar` com código válido → `commission_rate` e `commission_cents` (= `amount_cents * rate`, arredondado) persistidos em `test_purchases`.
-3. `/admin/comissoes` no mês corrente exibe vendedor com total = soma dos `commission_cents` das compras simuladas pagas.
-4. Sem chamadas à API do Asaas nos logs.
+1. `/login` → clicar em "Esqueci minha senha" → preenche e-mail → mensagem de sucesso.
+2. Abrir e-mail recebido → clicar no link → cai em `/redefinir-senha` com sessão de recovery ativa.
+3. Definir nova senha (com confirmação) → redirect para `/dashboard` logado.
+4. Tentar abrir `/redefinir-senha` direto (sem token) → mostra "Link inválido ou expirado".
+5. Login com a nova senha funciona.
+
+## Fora de escopo
+
+- Customização visual dos e-mails (Lovable Emails / templates React Email).
+- 2FA, rate limiting próprio, expiração customizada de token.
