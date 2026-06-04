@@ -32,26 +32,87 @@ export const createPurchase = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => createInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId, userEmail } = context;
-    const asaas = await import("./asaas.server");
     const host = getRequestHeader("host") ?? null;
     const proto = getRequestHeader("x-forwarded-proto") ?? "https";
     const origin = process.env.APP_BASE_URL || (host ? `${proto}://${host}` : "");
-    const cfg = asaas.getAsaasConfig(host);
 
-    // Valida código de vendedor quando informado (campo opcional)
+    // Bypass temporário da integração com Asaas para testes.
+    // Religar: setar ASAAS_BYPASS=false (ou remover a env).
+    const asaasBypass = (process.env.ASAAS_BYPASS ?? "true").toLowerCase() !== "false";
+
+    // Valida código de vendedor quando informado (campo opcional) e captura a rate
+    // para snapshot da comissão na compra.
     const sellerCodeNormalized = data.sellerCode?.trim()
       ? data.sellerCode.trim().toUpperCase()
       : null;
+    let sellerRate: number | null = null;
     if (sellerCodeNormalized) {
       const { data: seller } = await supabase
         .from("sellers")
-        .select("active")
+        .select("active, commission_rate")
         .eq("code", sellerCodeNormalized)
         .maybeSingle();
       if (!seller || !seller.active) {
         throw new Error("Código de vendedor inválido");
       }
+      sellerRate = Number(seller.commission_rate ?? 0);
     }
+
+    const amountCents = 2990;
+    const commissionCents = sellerRate != null ? Math.round(amountCents * sellerRate) : null;
+
+    // ===== Modo simulado (Asaas desligado) =====
+    if (asaasBypass) {
+      // Atualiza dados do pagador no profile (sem customer Asaas).
+      await supabase
+        .from("profiles")
+        .update({
+          cpf_cnpj: data.cpfCnpj,
+          full_name: data.fullName,
+          ...(data.phone ? { phone: data.phone } : {}),
+        })
+        .eq("id", userId);
+
+      const { data: purchase, error } = await supabase
+        .from("test_purchases")
+        .insert({
+          master_id: userId,
+          status: "pago",
+          amount_cents: amountCents,
+          seller_code: sellerCodeNormalized,
+          commission_rate: sellerRate,
+          commission_cents: commissionCents,
+          payment_method: "simulated",
+          simulated: true,
+        })
+        .select("id")
+        .single();
+
+      if (error || !purchase) {
+        throw new Error(error?.message ?? "Falha ao criar compra (simulada)");
+      }
+
+      await supabase.from("payments").insert({
+        purchase_id: purchase.id,
+        asaas_customer_id: null,
+        asaas_payment_id: `SIMULATED-${purchase.id}`,
+        method: "SIMULATED",
+        status: "CONFIRMED",
+        invoice_url: null,
+        due_date: asaasDueDateFromNow(0),
+        raw: { simulated: true } as any,
+      });
+
+      return {
+        purchaseId: purchase.id,
+        asaasPaymentId: `SIMULATED-${purchase.id}`,
+        invoiceUrl: null as string | null,
+      };
+    }
+
+    // ===== Fluxo real Asaas =====
+    const asaas = await import("./asaas.server");
+    const cfg = asaas.getAsaasConfig(host);
 
     // 1) Cria/recupera customer no Asaas
     const { data: profile } = await supabase
@@ -87,8 +148,10 @@ export const createPurchase = createServerFn({ method: "POST" })
       .insert({
         master_id: userId,
         status: "aguardando_pagamento",
-        amount_cents: 2990,
+        amount_cents: amountCents,
         seller_code: sellerCodeNormalized,
+        commission_rate: sellerRate,
+        commission_cents: commissionCents,
         payment_method: "hosted",
         simulated: false,
       })
