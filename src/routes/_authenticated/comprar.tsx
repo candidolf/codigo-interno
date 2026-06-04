@@ -114,9 +114,14 @@ function Comprar() {
         /* noop */
       }
 
-      if (!res.invoiceUrl) throw new Error("Falha ao gerar fatura. Tente novamente.");
-      // Redireciona para a página hospedada do Asaas (PIX, cartão e boleto na mesma tela).
-      window.location.href = res.invoiceUrl;
+      if (res.invoiceUrl) {
+        // Fluxo real: redireciona para a página hospedada do Asaas.
+        window.location.href = res.invoiceUrl;
+      } else {
+        // Modo simulado (Asaas desligado): segue direto para a tela de pagamento,
+        // que detecta status "pago" e libera o teste.
+        navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } });
+      }
     } catch (err: any) {
       const msg = err?.message ?? "Falha ao processar pagamento.";
       let friendly = msg;

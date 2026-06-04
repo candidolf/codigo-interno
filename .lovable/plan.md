@@ -1,38 +1,52 @@
-Plano para corrigir "Sua sessão expirou" no Comprar.
 
-## O que esse erro realmente é
-A mensagem "Sua sessão expirou" é uma tradução que a tela `comprar` faz quando o servidor responde com qualquer erro que contenha a palavra "Unauthorized". Ou seja, o Asaas nem chegou a ser chamado — o erro acontece antes, no momento em que a server function `createPurchase` valida quem é o usuário logado.
+## Objetivo
 
-Como você confirmou que acontece mesmo logo após o login, descarto a hipótese de "token vencido". A real causa é que o token de autenticação não está chegando ao servidor nessa chamada específica.
+1. Desligar **temporariamente** a integração com o Asaas. Ao clicar em "Ir para pagamento" em `/comprar`, simular pagamento aprovado e seguir o fluxo normal pós-pagamento.
+2. Quando houver `seller_code` **válido**, calcular e persistir a **comissão do vendedor** no momento da compra (snapshot), garantindo cálculo correto mesmo se a `commission_rate` mudar depois.
 
-## Sobre preview vs publicado
-O Asaas é chamado pelo seu servidor (não pelo navegador), então tanto faz preview ou publicado para o Asaas em si. A diferença entre os dois ambientes só importaria se tivesse variável de ambiente faltando — mas, como o erro ocorre antes do Asaas, isso não é o problema agora.
+## Escopo
 
-## O que vou fazer
-Sem mexer no header (`BrandHeader`, `useAuth`) e sem mexer no fluxo de login.
+Fluxo de criação de compra (`createPurchase`) + tela `/comprar`. Webhook, telas de pagamento e liberação de teste continuam funcionando. Tela admin de comissões passa a usar o valor persistido.
 
-1. Instrumentar diagnóstico no servidor
-   - Em `src/integrations/supabase/auth-middleware.ts`: logar (server-side) quando o cabeçalho `Authorization` chega vazio ou inválido, para confirmar se o token está sendo anexado pelo client.
-   - Esse log é temporário e me permite ler `server-function-logs` para entender o que está acontecendo.
+## Mudanças
 
-2. Garantir que o token é anexado em todas as chamadas
-   - Em `src/integrations/supabase/auth-attacher.ts`: revalidar a forma como o `Authorization: Bearer ...` é anexado e garantir que se aplica a POST/GET igualmente. Se necessário, trocar `getSession()` por uma leitura que aguarda o token estar pronto (evita o caso em que o middleware roda antes da sessão carregar do `localStorage`).
-   - Em `src/routes/_authenticated/comprar.tsx`: antes de chamar `createPurchase`, garantir explicitamente que a sessão está carregada (`getSession()` + `refreshSession()` se necessário). Sem `window.location.href` extra; mantém o fluxo atual.
+### 1. Migration nova `013_purchase_commission.sql`
 
-3. Tornar a mensagem de erro mais honesta
-   - Substituir o `Unauthorized: sessão expirada...` por uma mensagem que diferencie:
-     - Sessão de fato expirada → "Sessão expirada, faça login novamente"
-     - Token não foi enviado → "Falha ao autenticar a requisição. Recarregue e tente novamente"
-   - Isso ajuda a entender se for um caso residual.
+Adicionar à `public.test_purchases`:
+- `commission_rate numeric(5,4)` — snapshot da taxa no momento da compra (null quando sem vendedor).
+- `commission_cents integer` — valor calculado e congelado (null quando sem vendedor).
 
-4. Validação
-   - Logar como master, abrir `/comprar`, preencher CPF e tentar pagar.
-   - Verificar nos logs do servidor se o `Authorization` chegou.
-   - Se chegou e foi rejeitado pelo Supabase, partir para checar `EXT_SUPABASE_URL`/keys do ambiente.
-   - Se não chegou, o ajuste no `auth-attacher` resolve.
+Atualizar `public.admin_monthly_commissions(month_start date)` para somar `coalesce(p.commission_cents, round(p.amount_cents * s.commission_rate))` — assim compras antigas seguem usando a rate atual e as novas usam o snapshot.
 
-## Fora do escopo (não vou tocar)
-- `src/components/brand/BrandHeader.tsx`
-- `src/hooks/use-auth.ts`
-- `src/routes/login.tsx`
-- `src/routes/__root.tsx` (no que diz respeito ao listener de auth)
+### 2. `src/lib/purchases.functions.ts` — `createPurchase`
+
+**Bypass do Asaas (controlado por `ASAAS_BYPASS=true`, default ligado agora):**
+- Pular `createCustomer` e `createPayment`.
+- Inserir `test_purchases` com `status = "pago"`, `simulated = true`, `payment_method = "simulated"`.
+- Inserir `payments` com `asaas_payment_id = "SIMULATED-<purchaseId>"`, `status = "CONFIRMED"`, `method = "SIMULATED"`, `invoice_url = null`.
+- Retornar `{ purchaseId, asaasPaymentId, invoiceUrl: null }`.
+
+**Comissão (vale para bypass e fluxo real):**
+- Na validação do `sellerCodeNormalized`, além de checar `active`, **também ler `commission_rate`** do `sellers`.
+- Calcular `commissionCents = Math.round(amount_cents * commission_rate)`.
+- Gravar `commission_rate` e `commission_cents` no insert de `test_purchases`.
+- Sem `seller_code`: ambos ficam `null`.
+
+### 3. `src/routes/_authenticated/comprar.tsx` — `onSubmit`
+
+Se `invoiceUrl` vier `null` (modo simulado), `navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } })` em vez de `window.location.href`. A página `pagamento.$id.tsx` já detecta status pago via polling e segue o fluxo.
+
+### 4. `src/routes/_authenticated/admin/comissoes.tsx`
+
+Sem mudanças no front — a RPC já retorna `commission_cents` consolidado (agora usando o snapshot quando disponível).
+
+## Como religar o Asaas depois
+
+Remover/zerar a env `ASAAS_BYPASS`. Cálculo de comissão permanece (é independente do bypass).
+
+## Validação
+
+1. `/comprar` sem código → paga simulado, `commission_*` null, segue para intro do teste.
+2. `/comprar` com código válido → `commission_rate` e `commission_cents` (= `amount_cents * rate`, arredondado) persistidos em `test_purchases`.
+3. `/admin/comissoes` no mês corrente exibe vendedor com total = soma dos `commission_cents` das compras simuladas pagas.
+4. Sem chamadas à API do Asaas nos logs.
