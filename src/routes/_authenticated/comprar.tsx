@@ -115,8 +115,16 @@ function Comprar() {
       }
 
       if (res.invoiceUrl) {
-        // Fluxo real: redireciona para a página hospedada do Asaas.
-        window.location.href = res.invoiceUrl;
+        // Fluxo real: abre a fatura do Asaas em nova aba e mantém o app
+        // na tela de aguardando pagamento (polling + webhook liberam o teste).
+        // O Asaas bloqueia iframe (X-Frame-Options: SAMEORIGIN), por isso nova aba.
+        const opened = window.open(res.invoiceUrl, "_blank", "noopener,noreferrer");
+        if (!opened) {
+          // Popup bloqueada — fallback para mesma aba.
+          window.location.href = res.invoiceUrl;
+          return;
+        }
+        navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } });
       } else {
         // Modo simulado (Asaas desligado): segue direto para a tela de pagamento,
         // que detecta status "pago" e libera o teste.
