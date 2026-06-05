@@ -164,9 +164,15 @@ export const createPurchase = createServerFn({ method: "POST" })
 
     // 3) Cria payment no Asaas (fatura unificada: cliente escolhe PIX/Cartão/Boleto na página do Asaas)
     const dueDate = asaas.dueDateFromNow(3);
-    const successUrl = origin
-      ? `${origin}/pagamento/${purchase.id}`
-      : `https://codigo-interno.lovable.app/pagamento/${purchase.id}`;
+    // O Asaas exige que a successUrl pertença ao domínio cadastrado em
+    // "Configurações da conta → Informações". Por isso ignoramos o `origin`
+    // da requisição (que pode ser uma URL de preview) e usamos sempre o
+    // domínio publicado. Pode ser sobrescrito via secret se necessário.
+    const rawBase =
+      process.env.ASAAS_CALLBACK_BASE_URL || "https://codigo-interno.lovable.app";
+    const callbackBase = rawBase.replace(/\/+$/, "");
+    const successUrl = `${callbackBase}/pagamento/${purchase.id}`;
+    console.log("[asaas] successUrl", successUrl);
 
     let payment: Awaited<ReturnType<typeof asaas.createPayment>>;
     try {
