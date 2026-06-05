@@ -1,48 +1,38 @@
+## Reconciliação ativa do pagamento Asaas
 
-# Corrigir fluxo "Ir para pagamento": aba atual nunca vai para o Asaas
+Hoje a tela `/pagamento/$id` depende do webhook do Asaas para sair de "Aguardando pagamento". Em preview (sandbox) o webhook frequentemente não chega, e mesmo em produção pode atrasar — a tela fica travada mesmo após o pagamento ser concluído na aba do Asaas.
 
-## Problema
+### Mudanças
 
-Hoje em `src/routes/_authenticated/comprar.tsx`, ao clicar em **Ir para pagamento**:
+**1. `src/lib/purchases.functions.ts` — `getPaymentDetails`**
 
-```ts
-const opened = window.open(res.invoiceUrl, "_blank", "noopener,noreferrer");
-if (!opened) {
-  window.location.href = res.invoiceUrl; // ← aba atual vai para o Asaas
-  return;
-}
-navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } });
-```
+Adicionar reconciliação ativa dentro do handler (executa a cada polling, 4s):
 
-Quando o navegador bloqueia a popup (comum em Chrome/Brave/Safari, principalmente em preview), `opened` vem `null` e o fallback **redireciona a aba atual para o Asaas**. Resultado percebido pelo usuário: "abre uma aba e a atual também vai pro Asaas". Em alguns navegadores, mesmo com popup permitida, o comportamento de `window.open` dentro de um `await` (após o `await buy(...)`) é tratado como não-iniciado-por-gesto-do-usuário e cai no mesmo caminho.
+- Buscar o `payments` mais recente da compra (já feito) e capturar `asaas_payment_id`.
+- Se `purchase.status === "aguardando_pagamento"` E `asaas_payment_id` existe E não começa com `SIMULATED-`:
+  - `const asaas = await import("./asaas.server")`
+  - `const cfg = asaas.getAsaasConfig(host)` (usar `getRequestHeader("host")` — mesma lógica do `createPurchase`, garante sandbox vs prod automaticamente)
+  - `const remote = await asaas.getPayment(cfg, asaas_payment_id)` dentro de try/catch (erros só logam, não quebram polling)
+  - Se `remote.status` ∈ {`CONFIRMED`, `RECEIVED`, `RECEIVED_IN_CASH`}:
+    - `UPDATE test_purchases SET status='pago', updated_at=now() WHERE id=...`
+    - `UPDATE payments SET status=remote.status, raw=remote WHERE id=<payment.id>`
+    - Recarregar `purchase` e `payment` para retornar o estado atualizado na mesma resposta (a tela já redireciona quando vê `pago`).
+- Verificar antes se `asaas.server.ts` exporta `getPayment`; se não, adicionar função simples `GET /payments/{id}` reaproveitando o cliente HTTP existente.
 
-Comportamento desejado:
-- Aba atual **sempre** navega para `/pagamento/$id` (tela de "aguardando pagamento" com spinner + polling/webhook).
-- Asaas **sempre** abre em nova aba.
-- Se a popup for bloqueada, mostrar na tela de pagamento um botão "Abrir fatura do Asaas" para o usuário abrir manualmente (gesto direto = nunca bloqueado).
+**2. `src/routes/_authenticated/pagamento.$id.tsx` — botão "Já paguei, verificar agora"**
 
-## Mudanças
+Pequeno botão secundário ao lado de "Abrir fatura", visível enquanto `!PAID.has(status)`:
+- Ao clicar: `queryClient.invalidateQueries({ queryKey: ["payment", id] })` (força refetch imediato → dispara reconciliação no server) + estado local `checking` para mostrar spinner por ~1s.
+- Toast informativo se continuar `aguardando_pagamento` após o refetch ("Pagamento ainda não confirmado pelo Asaas").
 
-### 1. `src/routes/_authenticated/comprar.tsx`
-- Remover o fallback `window.location.href = res.invoiceUrl`.
-- Sempre `navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } })` após criar a compra.
-- Tentar abrir a fatura em nova aba **antes** de navegar; se `opened` for `null`, guardar `sessionStorage.setItem('purchase:<id>:invoiceUrl', res.invoiceUrl)` para a tela de pagamento oferecer o botão manual.
-- Manter o `sessionStorage` já existente do destinatário.
+### Não muda
 
-### 2. `src/routes/_authenticated/pagamento.$id.tsx` (ajuste pequeno na UI)
-- Ler `sessionStorage.getItem('purchase:<id>:invoiceUrl')` no mount. Se existir e o status ainda for `aguardando_pagamento`, mostrar um aviso discreto: "Não conseguimos abrir a aba do Asaas automaticamente" + botão **Abrir fatura** que faz `window.open(url, "_blank")` (clique direto do usuário → não é bloqueado).
-- Quando o status virar `pago` / `em_andamento`, limpar o item do sessionStorage.
-- Manter o spinner + mensagem "Aguardando confirmação do pagamento…" já existentes (sem mudanças no polling/webhook).
+- Webhook `/api/public/asaas-webhook` (continua sendo o caminho rápido em prod).
+- `createPurchase`, fluxo de checkout, UI da `comprar.tsx`.
+- Banco, migrations, RLS, secrets.
 
-## Não muda
+### Verificação
 
-- Server function `createPurchase` e integração Asaas.
-- Webhook `/api/public/asaas-webhook`.
-- Banco de dados, migrations, secrets.
-- `successUrl` (já corrigido na rodada anterior).
-
-## Verificação
-
-1. Clicar **Ir para pagamento** com popup permitida: aba atual vai para `/pagamento/<id>` mostrando spinner; nova aba abre no Asaas. ✅
-2. Clicar com popup bloqueada: aba atual vai para `/pagamento/<id>` mostrando spinner **+ botão "Abrir fatura"**; nenhuma navegação da aba atual para o Asaas. ✅
-3. Pagar no sandbox → webhook libera o teste → tela avança normalmente.
+1. Preview/sandbox: pagar na aba do Asaas → em até 4s a tela atual sai de "Aguardando" e redireciona para o teste.
+2. Botão "Já paguei, verificar agora": confirma na hora sem esperar o ciclo de 4s.
+3. Produção: webhook continua liberando em 1–2s; reconciliação serve como fallback transparente.
