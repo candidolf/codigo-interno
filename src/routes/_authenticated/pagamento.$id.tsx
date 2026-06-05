@@ -102,18 +102,31 @@ function Pagamento() {
           </div>
         )}
 
-        {data && !PAID.has(data.purchaseStatus) && data.invoiceUrl && (
+        {data && !PAID.has(data.purchaseStatus) && (
           <div className="glass rounded-2xl p-6 mt-8 space-y-4">
-            <h2 className="font-display text-xl font-semibold">Fechou a aba da fatura?</h2>
-            <p className="text-sm text-muted-foreground">
-              Sem problema. Clique abaixo para reabrir a fatura em uma nova aba. PIX, cartão e boleto estão disponíveis na mesma tela.
-            </p>
+            {data.invoiceUrl ? (
+              <>
+                <h2 className="font-display text-xl font-semibold">Fechou a aba da fatura?</h2>
+                <p className="text-sm text-muted-foreground">
+                  Sem problema. Clique abaixo para reabrir a fatura em uma nova aba. PIX, cartão e boleto estão disponíveis na mesma tela.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="font-display text-xl font-semibold">Aguardando confirmação</h2>
+                <p className="text-sm text-muted-foreground">
+                  A fatura está sendo gerada. Assim que estiver pronta você poderá pagar. Use o botão abaixo para verificar o status.
+                </p>
+              </>
+            )}
             <div className="flex flex-col sm:flex-row gap-3">
-              <GradientButton asChild className="cursor-pointer w-full sm:w-auto">
-                <a href={data.invoiceUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" /> Abrir fatura
-                </a>
-              </GradientButton>
+              {data.invoiceUrl && (
+                <GradientButton asChild className="cursor-pointer w-full sm:w-auto">
+                  <a href={data.invoiceUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" /> Abrir fatura
+                  </a>
+                </GradientButton>
+              )}
               <Button
                 type="button"
                 variant="outline"
