@@ -1,32 +1,48 @@
-# Forçar successUrl com o domínio cadastrado no Asaas
+
+# Corrigir fluxo "Ir para pagamento": aba atual nunca vai para o Asaas
 
 ## Problema
 
-A conta Asaas exige que a `successUrl` seja do **mesmo domínio cadastrado** em "Configurações da conta → Informações". Você já cadastrou `https://codigo-interno.lovable.app/`. Hoje o código monta `successUrl` a partir de `${origin}/pagamento/${id}`, e o `origin` vem do header da requisição — quando você compra pelo preview, vira `id-preview--...lovable.app`, que **não está cadastrado** e o Asaas recusa.
+Hoje em `src/routes/_authenticated/comprar.tsx`, ao clicar em **Ir para pagamento**:
 
-## Solução
+```ts
+const opened = window.open(res.invoiceUrl, "_blank", "noopener,noreferrer");
+if (!opened) {
+  window.location.href = res.invoiceUrl; // ← aba atual vai para o Asaas
+  return;
+}
+navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } });
+```
 
-Sempre enviar `successUrl` no domínio publicado, ignorando o `origin` da requisição.
+Quando o navegador bloqueia a popup (comum em Chrome/Brave/Safari, principalmente em preview), `opened` vem `null` e o fallback **redireciona a aba atual para o Asaas**. Resultado percebido pelo usuário: "abre uma aba e a atual também vai pro Asaas". Em alguns navegadores, mesmo com popup permitida, o comportamento de `window.open` dentro de um `await` (após o `await buy(...)`) é tratado como não-iniciado-por-gesto-do-usuário e cai no mesmo caminho.
 
-### Regra
-- Base sempre = `https://codigo-interno.lovable.app` (domínio cadastrado no Asaas).
-- Opcional: secret `ASAAS_CALLBACK_BASE_URL` sobrescreve a base, caso futuramente queira trocar para outro domínio cadastrado sem deploy.
-- `successUrl` final = `${base}/pagamento/${purchase.id}`.
-
-O usuário continua sendo redirecionado para o app publicado após pagar — mesmo que tenha iniciado a compra pelo preview (a aba do Asaas abre na URL pública e o webhook libera o teste para qualquer ambiente, já que o `purchase.id` é o mesmo).
+Comportamento desejado:
+- Aba atual **sempre** navega para `/pagamento/$id` (tela de "aguardando pagamento" com spinner + polling/webhook).
+- Asaas **sempre** abre em nova aba.
+- Se a popup for bloqueada, mostrar na tela de pagamento um botão "Abrir fatura do Asaas" para o usuário abrir manualmente (gesto direto = nunca bloqueado).
 
 ## Mudanças
 
-- `src/lib/purchases.functions.ts`
-  - Remover o uso de `origin` no cálculo do `successUrl`.
-  - Calcular `base` na ordem: `process.env.ASAAS_CALLBACK_BASE_URL` → `"https://codigo-interno.lovable.app"`.
-  - Garantir que `base` não termina com `/` antes de concatenar.
-  - Log no servidor com a URL final (sem dados sensíveis) para diagnóstico.
+### 1. `src/routes/_authenticated/comprar.tsx`
+- Remover o fallback `window.location.href = res.invoiceUrl`.
+- Sempre `navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } })` após criar a compra.
+- Tentar abrir a fatura em nova aba **antes** de navegar; se `opened` for `null`, guardar `sessionStorage.setItem('purchase:<id>:invoiceUrl', res.invoiceUrl)` para a tela de pagamento oferecer o botão manual.
+- Manter o `sessionStorage` já existente do destinatário.
+
+### 2. `src/routes/_authenticated/pagamento.$id.tsx` (ajuste pequeno na UI)
+- Ler `sessionStorage.getItem('purchase:<id>:invoiceUrl')` no mount. Se existir e o status ainda for `aguardando_pagamento`, mostrar um aviso discreto: "Não conseguimos abrir a aba do Asaas automaticamente" + botão **Abrir fatura** que faz `window.open(url, "_blank")` (clique direto do usuário → não é bloqueado).
+- Quando o status virar `pago` / `em_andamento`, limpar o item do sessionStorage.
+- Manter o spinner + mensagem "Aguardando confirmação do pagamento…" já existentes (sem mudanças no polling/webhook).
+
+## Não muda
+
+- Server function `createPurchase` e integração Asaas.
+- Webhook `/api/public/asaas-webhook`.
+- Banco de dados, migrations, secrets.
+- `successUrl` (já corrigido na rodada anterior).
 
 ## Verificação
 
-1. Comprar pelo preview: a fatura do Asaas deve abrir sem erro 400.
-2. Pagar no sandbox: o redirect leva para `https://codigo-interno.lovable.app/pagamento/<id>`.
-3. Webhook em `/api/public/asaas-webhook` libera o teste.
-
-Nenhuma migration, nenhum novo secret obrigatório, nenhuma mudança de UI.
+1. Clicar **Ir para pagamento** com popup permitida: aba atual vai para `/pagamento/<id>` mostrando spinner; nova aba abre no Asaas. ✅
+2. Clicar com popup bloqueada: aba atual vai para `/pagamento/<id>` mostrando spinner **+ botão "Abrir fatura"**; nenhuma navegação da aba atual para o Asaas. ✅
+3. Pagar no sandbox → webhook libera o teste → tela avança normalmente.
