@@ -1,13 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { getPaymentDetails, assignSelf } from "@/lib/purchases.functions";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/pagamento/$id")({
   component: Pagamento,
@@ -26,7 +27,9 @@ function Pagamento() {
   const navigate = useNavigate();
   const fetchDetails = useServerFn(getPaymentDetails);
   const assign = useServerFn(assignSelf);
+  const queryClient = useQueryClient();
   const [routing, setRouting] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   // Recupera destinatário: 1) querystring, 2) sessionStorage salvo no checkout, 3) fallback "eu".
   const [destinatario, setDestinatario] = useState<"eu" | "outro">(() => {
@@ -46,6 +49,24 @@ function Pagamento() {
     queryFn: () => fetchDetails({ data: { purchaseId: id } }),
     refetchInterval: (q) => (q.state.data && PAID.has(q.state.data.purchaseStatus) ? false : 4000),
   });
+
+  async function handleCheckNow() {
+    if (checking) return;
+    setChecking(true);
+    try {
+      const fresh = await queryClient.fetchQuery({
+        queryKey: ["payment", id],
+        queryFn: () => fetchDetails({ data: { purchaseId: id } }),
+      });
+      if (!PAID.has(fresh.purchaseStatus)) {
+        toast.info("Pagamento ainda não confirmado pelo Asaas. Tente novamente em alguns segundos.");
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao verificar pagamento");
+    } finally {
+      setChecking(false);
+    }
+  }
 
   useEffect(() => {
     if (!data || routing) return;
@@ -87,11 +108,27 @@ function Pagamento() {
             <p className="text-sm text-muted-foreground">
               Sem problema. Clique abaixo para reabrir a fatura em uma nova aba. PIX, cartão e boleto estão disponíveis na mesma tela.
             </p>
-            <GradientButton asChild className="cursor-pointer w-full sm:w-auto">
-              <a href={data.invoiceUrl} target="_blank" rel="noreferrer">
-                <ExternalLink className="h-4 w-4 mr-2" /> Abrir fatura
-              </a>
-            </GradientButton>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <GradientButton asChild className="cursor-pointer w-full sm:w-auto">
+                <a href={data.invoiceUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" /> Abrir fatura
+                </a>
+              </GradientButton>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCheckNow}
+                disabled={checking}
+                className="cursor-pointer w-full sm:w-auto"
+              >
+                {checking ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Já paguei, verificar agora
+              </Button>
+            </div>
             <Alert>
               <AlertDescription className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" /> Atualizamos esta página automaticamente assim que o pagamento for confirmado.

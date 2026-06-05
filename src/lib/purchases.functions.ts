@@ -217,7 +217,7 @@ export const getPaymentDetails = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ purchaseId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: purchase, error } = await supabase
+    let { data: purchase, error } = await supabase
       .from("test_purchases")
       .select("id, status, master_id")
       .eq("id", data.purchaseId)
@@ -225,13 +225,43 @@ export const getPaymentDetails = createServerFn({ method: "POST" })
     if (error || !purchase) throw new Error("Compra não encontrada");
     if (purchase.master_id !== userId) throw new Error("Acesso negado");
 
-    const { data: payment } = await supabase
+    let { data: payment } = await supabase
       .from("payments")
-      .select("status, invoice_url, due_date")
+      .select("id, status, invoice_url, due_date, asaas_payment_id")
       .eq("purchase_id", data.purchaseId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    // Reconciliação ativa: se ainda aguardando pagamento e tem payment id real no Asaas,
+    // consulta a API do Asaas diretamente como fallback ao webhook (essencial em sandbox).
+    if (
+      purchase.status === "aguardando_pagamento" &&
+      payment?.asaas_payment_id &&
+      !payment.asaas_payment_id.startsWith("SIMULATED-")
+    ) {
+      try {
+        const host = getRequestHeader("host") ?? null;
+        const asaas = await import("./asaas.server");
+        const cfg = asaas.getAsaasConfig(host);
+        const remote = await asaas.getPayment(cfg, payment.asaas_payment_id);
+        const paidStatuses = new Set(["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"]);
+        if (paidStatuses.has(remote.status)) {
+          await supabase
+            .from("test_purchases")
+            .update({ status: "pago", updated_at: new Date().toISOString() })
+            .eq("id", purchase.id);
+          await supabase
+            .from("payments")
+            .update({ status: remote.status, raw: remote as any })
+            .eq("id", payment.id);
+          purchase = { ...purchase, status: "pago" };
+          payment = { ...payment, status: remote.status };
+        }
+      } catch (e) {
+        console.warn("[asaas] reconcile failed", (e as Error)?.message);
+      }
+    }
 
     return {
       purchaseStatus: purchase.status as string,
