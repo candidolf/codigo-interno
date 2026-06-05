@@ -115,15 +115,12 @@ function Comprar() {
       }
 
       if (res.invoiceUrl) {
-        // Fluxo real: abre a fatura do Asaas em nova aba e mantém o app
-        // na tela de aguardando pagamento (polling + webhook liberam o teste).
-        // O Asaas bloqueia iframe (X-Frame-Options: SAMEORIGIN), por isso nova aba.
-        const opened = window.open(res.invoiceUrl, "_blank", "noopener,noreferrer");
-        if (!opened) {
-          // Popup bloqueada — fallback para mesma aba.
-          window.location.href = res.invoiceUrl;
-          return;
-        }
+        // Fluxo real: tenta abrir a fatura do Asaas em nova aba e SEMPRE
+        // mantém a aba atual na tela de aguardando pagamento (polling +
+        // webhook liberam o teste). Se a popup for bloqueada, a tela de
+        // pagamento mostra um botão "Abrir fatura" para o usuário abrir
+        // manualmente — nunca redirecionamos a aba atual para o Asaas.
+        window.open(res.invoiceUrl, "_blank", "noopener,noreferrer");
         navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } });
       } else {
         // Modo simulado (Asaas desligado): segue direto para a tela de pagamento,
