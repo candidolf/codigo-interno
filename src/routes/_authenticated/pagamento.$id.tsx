@@ -72,7 +72,7 @@ function Pagamento() {
       <main className="container mx-auto px-6 py-12 max-w-2xl">
         <h1 className="font-display text-3xl sm:text-4xl font-bold">Aguardando pagamento</h1>
         <p className="text-muted-foreground mt-2">
-          Assim que o pagamento for confirmado, liberamos seu teste automaticamente.
+          A fatura foi aberta em uma nova aba. Conclua o pagamento por lá — liberamos seu teste automaticamente assim que o ASAAS confirmar.
         </p>
 
         {!data && (
@@ -83,9 +83,9 @@ function Pagamento() {
 
         {data && !PAID.has(data.purchaseStatus) && data.invoiceUrl && (
           <div className="glass rounded-2xl p-6 mt-8 space-y-4">
-            <h2 className="font-display text-xl font-semibold">Aguardando confirmação</h2>
+            <h2 className="font-display text-xl font-semibold">Fechou a aba da fatura?</h2>
             <p className="text-sm text-muted-foreground">
-              Se você fechou a aba do Asaas sem concluir, clique abaixo para reabrir a fatura. PIX, cartão e boleto estão disponíveis na mesma tela.
+              Sem problema. Clique abaixo para reabrir a fatura em uma nova aba. PIX, cartão e boleto estão disponíveis na mesma tela.
             </p>
             <GradientButton asChild className="cursor-pointer w-full sm:w-auto">
               <a href={data.invoiceUrl} target="_blank" rel="noreferrer">
