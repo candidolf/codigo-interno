@@ -84,7 +84,7 @@ export function SalaForm({ room }: { room?: Room | null }) {
     onSuccess: (id) => {
       toast.success("Sala salva");
       qc.invalidateQueries({ queryKey: ["admin-rooms"] });
-      if (!editing) navigate({ to: "/admin/salas/$id", params: { id } });
+      navigate({ to: "/admin/salas" });
     },
     onError: (e: any) => toast.error(e.message),
   });
