@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { ConfirmDialog } from "@/components/brand/ConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { listAdminUsers } from "@/lib/admin-users.functions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,7 @@ type Row = {
   birth_date: string | null;
   phone: string | null;
   linked_master_id: string | null;
+  email: string | null;
   role: "admin" | "master" | "user" | null;
 };
 
@@ -44,24 +47,10 @@ function AdminUsers() {
   const [editRole, setEditRole] = useState<"admin" | "master" | "user">("user");
   const [toDelete, setToDelete] = useState<Row | null>(null);
 
+  const fetchUsers = useServerFn(listAdminUsers);
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["admin-users"],
-    queryFn: async (): Promise<Row[]> => {
-      const [{ data: profs }, { data: roles }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, birth_date, phone, linked_master_id"),
-        supabase.from("user_roles").select("user_id, role"),
-      ]);
-      const roleMap = new Map<string, string>();
-      (roles ?? []).forEach((r: any) => {
-        const prev = roleMap.get(r.user_id);
-        const rank = (x: string) => (x === "admin" ? 3 : x === "master" ? 2 : 1);
-        if (!prev || rank(r.role) > rank(prev)) roleMap.set(r.user_id, r.role);
-      });
-      return (profs ?? []).map((p: any) => ({
-        ...p,
-        role: (roleMap.get(p.id) as Row["role"]) ?? null,
-      }));
-    },
+    queryFn: () => fetchUsers() as Promise<Row[]>,
   });
 
   const updateRole = useMutation({
@@ -97,7 +86,11 @@ function AdminUsers() {
     .filter((u) => {
       if (!search) return true;
       const s = search.toLowerCase();
-      return (u.full_name ?? "").toLowerCase().includes(s) || u.id.includes(s);
+      return (
+        (u.full_name ?? "").toLowerCase().includes(s) ||
+        (u.email ?? "").toLowerCase().includes(s) ||
+        u.id.includes(s)
+      );
     });
 
   return (
@@ -139,6 +132,7 @@ function AdminUsers() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>Papel</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>Idade</TableHead>
@@ -148,21 +142,21 @@ function AdminUsers() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     Carregando…
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && isError && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-destructive py-8">
+                  <TableCell colSpan={6} className="text-center text-destructive py-8">
                     Erro ao carregar: {(error as any)?.message ?? "desconhecido"}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && list.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     Nenhum usuário encontrado.
                   </TableCell>
                 </TableRow>
@@ -170,6 +164,7 @@ function AdminUsers() {
               {list.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.full_name ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{u.email ?? "—"}</TableCell>
                   <TableCell>
                     <span className="text-xs px-2 py-1 rounded-full bg-secondary border border-border">
                       {u.role ?? "—"}
