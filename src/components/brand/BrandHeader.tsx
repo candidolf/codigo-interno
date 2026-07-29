@@ -49,6 +49,7 @@ const navByRole: Record<Role, { to: string; label: string }[]> = {
     { to: "/admin/vendedores", label: "Vendedores" },
     { to: "/admin/usuarios", label: "Usuários" },
     { to: "/admin/comissoes", label: "Comissões" },
+    { to: "/admin/agentes", label: "Agentes" },
   ],
 };
 
