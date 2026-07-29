@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { QuestionFlow } from "@/components/brand/QuestionFlow";
-import { questions, rooms, themeStyle } from "@/data/mock";
+import { themeStyle } from "@/data/mock";
+import { fetchRoomsWithQuestions } from "@/lib/rooms-data";
 import { ArrowLeft } from "lucide-react";
 import { loadProgress, startRoom } from "@/lib/test-progress";
 
@@ -11,8 +13,12 @@ export const Route = createFileRoute("/teste/$id/sala/$slug")({ component: Sala 
 function Sala() {
   const { id, slug } = Route.useParams();
   const navigate = useNavigate();
-  const room = rooms.find((r) => r.slug === slug);
-  const qs = questions.filter((q) => q.roomSlug === slug);
+  const { data, isLoading } = useQuery({
+    queryKey: ["rooms-with-questions"],
+    queryFn: fetchRoomsWithQuestions,
+  });
+  const room = data?.rooms.find((r) => r.slug === slug);
+  const qs = (data?.questions ?? []).filter((q) => q.roomSlug === slug);
 
   useEffect(() => {
     if (!room) return;
@@ -30,7 +36,20 @@ function Sala() {
     startRoom(id, slug);
   }, [id, slug, room, navigate]);
 
+  if (isLoading) return <div className="p-10 text-muted-foreground">Carregando sala…</div>;
   if (!room) return <div className="p-10">Sala não encontrada.</div>;
+  if (!qs.length)
+    return (
+      <div className="min-h-screen">
+        <BrandHeader />
+        <main className="container mx-auto px-6 py-16 text-center">
+          <p className="text-muted-foreground">Esta sala ainda não possui perguntas cadastradas.</p>
+          <Link to="/teste/$id/salas" params={{ id }} className="cursor-pointer text-sm underline mt-4 inline-block">
+            Voltar ao mapa
+          </Link>
+        </main>
+      </div>
+    );
   const s = themeStyle(room.theme);
   const themeBg = { joy: "bg-joy", fear: "bg-fear", anger: "bg-anger", discovery: "bg-discovery" }[room.theme];
 
@@ -46,7 +65,7 @@ function Sala() {
           <h1 className={`font-display text-3xl font-bold mt-3 ${s.text}`}>{room.title}</h1>
           <p className="text-muted-foreground text-sm mt-1">{room.description}</p>
         </div>
-        <QuestionFlow questions={qs} testId={id} themeClass={themeBg} roomSlug={slug} />
+        <QuestionFlow questions={qs} testId={id} themeClass={themeBg} roomSlug={slug} roomId={room.id} />
       </main>
     </div>
   );

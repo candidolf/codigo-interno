@@ -1,19 +1,28 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Button } from "@/components/ui/button";
 import { PartyPopper } from "lucide-react";
-import { questions as allQuestions, rooms, themeStyle } from "@/data/mock";
+import { themeStyle } from "@/data/mock";
+import { fetchRoomsWithQuestions } from "@/lib/rooms-data";
 import { allRoomsCompleted, loadProgress } from "@/lib/test-progress";
 
 export const Route = createFileRoute("/teste/$id/sala-concluida/$slug")({ component: SalaConcluida });
 
 function SalaConcluida() {
   const { id, slug } = Route.useParams();
+  const { data, isLoading } = useQuery({
+    queryKey: ["rooms-with-questions"],
+    queryFn: fetchRoomsWithQuestions,
+  });
+  const rooms = data?.rooms ?? [];
+  const allQuestions = data?.questions ?? [];
   const room = rooms.find((r) => r.slug === slug);
   const state = loadProgress(id);
   const roomState = state.rooms[slug];
   const qs = allQuestions.filter((q) => q.roomSlug === slug);
+  if (isLoading) return <div className="p-10 text-muted-foreground">Carregando…</div>;
   if (!room) return <div className="p-10">Sala não encontrada.</div>;
   const s = themeStyle(room.theme);
 
@@ -24,7 +33,8 @@ function SalaConcluida() {
   const total = qs.length;
   const top = Object.entries(dist).sort((a, b) => b[1] - a[1])[0];
 
-  const allDone = allRoomsCompleted(state, rooms.map((r) => r.slug));
+  const withQuestions = rooms.filter((r) => allQuestions.some((q) => q.roomSlug === r.slug));
+  const allDone = allRoomsCompleted(state, withQuestions.map((r) => r.slug));
 
   return (
     <div className="min-h-screen">
@@ -48,7 +58,7 @@ function SalaConcluida() {
             </p>
           )}
           <p className="text-xs text-muted-foreground mt-4 italic">
-            * O resumo detalhado será gerado pela IA na próxima fase.
+            * O relatório completo é gerado pela IA ao final de todas as salas.
           </p>
         </div>
 

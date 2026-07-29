@@ -6,7 +6,7 @@ import { BrandHeader } from "@/components/brand/BrandHeader";
 import { RoomCard } from "@/components/brand/RoomCard";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { ArrowLeft } from "lucide-react";
-import { rooms, questions as allQuestions } from "@/data/mock";
+import { fetchRoomsWithQuestions } from "@/lib/rooms-data";
 import { getPurchaseTestando } from "@/lib/purchases.functions";
 import { allRoomsCompleted, getRoomProgress, loadProgress, type ProgressState } from "@/lib/test-progress";
 
@@ -30,12 +30,20 @@ function Salas() {
     queryKey: ["testando", id],
     queryFn: () => fetchTestando({ data: { purchaseId: id } }),
   });
+  const { data: roomsData, isLoading: loadingRooms } = useQuery({
+    queryKey: ["rooms-with-questions"],
+    queryFn: fetchRoomsWithQuestions,
+  });
 
   const [state, setState] = useState<ProgressState>(() => loadProgress(id));
   useEffect(() => { setState(loadProgress(id)); }, [id]);
 
   const age = testando ? ageFromBirth(testando.birthDate) : 18;
-  const eligible = rooms.filter((r) => age >= r.ageMin && age <= r.ageMax);
+  const allRooms = roomsData?.rooms ?? [];
+  const allQuestions = roomsData?.questions ?? [];
+  const eligible = allRooms.filter(
+    (r) => age >= r.ageMin && age <= r.ageMax && allQuestions.some((q) => q.roomSlug === r.slug),
+  );
   const startedRoom = state.startedRoom;
   const allDone = allRoomsCompleted(state, eligible.map((r) => r.slug));
   return (
@@ -56,8 +64,12 @@ function Salas() {
             </GradientButton>
           )}
         </div>
-        {isLoading ? (
+        {isLoading || loadingRooms ? (
           <p className="text-muted-foreground mt-8">Carregando...</p>
+        ) : eligible.length === 0 ? (
+          <p className="text-muted-foreground mt-8">
+            Nenhuma sala com perguntas disponível para esta faixa etária.
+          </p>
         ) : (
           <div className="grid sm:grid-cols-2 gap-5 mt-8">
             {eligible.map((r) => {
