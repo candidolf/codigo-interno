@@ -1,74 +1,144 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
-import { themeStyle, type Theme } from "@/data/mock";
-import { Download, AlertTriangle, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ReportContent } from "@/components/brand/ReportContent";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchReport, generateReport } from "@/lib/report";
+import { downloadReportPdf } from "@/lib/report-pdf";
+import { Download, AlertTriangle, Loader2 } from "lucide-react";
 
-export const Route = createFileRoute("/relatorio/$id")({ component: Relatorio });
-
-const blocks: { theme: Theme; title: string; score: number; text: string }[] = [
-  { theme: "joy", title: "Alegria", score: 78, text: "Forte conexão com prazer social e celebração de pequenas conquistas." },
-  { theme: "fear", title: "Medo", score: 42, text: "Medo é gerenciado pela busca de controle e planejamento." },
-  { theme: "anger", title: "Raiva", score: 35, text: "Raiva tende a ser internalizada; reflete sobre injustiça." },
-  { theme: "discovery", title: "Descobertas", score: 84, text: "Curiosidade alta, abertura a experiências novas." },
-];
+export const Route = createFileRoute("/relatorio/$id")({
+  component: Relatorio,
+  head: () => ({
+    meta: [
+      { title: "Relatório da análise emocional | Código Interno" },
+      {
+        name: "description",
+        content:
+          "Relatório completo gerado por IA a partir das respostas das salas do teste do Código Interno.",
+      },
+      { property: "og:title", content: "Relatório da análise emocional" },
+      {
+        property: "og:description",
+        content: "Veja e baixe em PDF o relatório gerado pela IA a partir das suas respostas.",
+      },
+      { property: "og:type", content: "article" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+});
 
 function Relatorio() {
   const { id } = Route.useParams();
+  const [regenerating, setRegenerating] = useState(false);
+
+  const { data: purchase } = useQuery({
+    queryKey: ["purchase-basic", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("test_purchases")
+        .select("id, testando_name")
+        .eq("id", id)
+        .maybeSingle();
+      return data as { id: string; testando_name: string | null } | null;
+    },
+  });
+
+  const { data: report, isLoading, refetch } = useQuery({
+    queryKey: ["test-report", id],
+    queryFn: () => fetchReport(id),
+  });
+
+  const testandoName = purchase?.testando_name ?? "Testando";
+
+  const regenerate = async () => {
+    setRegenerating(true);
+    try {
+      await generateReport(id);
+      await refetch();
+      toast.success("Relatório gerado");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao gerar o relatório");
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <BrandHeader />
-      <main className="container mx-auto px-6 py-12 max-w-4xl">
+      <main className="container mx-auto px-4 sm:px-6 py-10 sm:py-12 max-w-4xl">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Relatório #{id}</p>
-            <h1 className="font-display text-4xl font-bold mt-1">Análise emocional completa</h1>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">Relatório</p>
+            <h1 className="font-display text-3xl sm:text-4xl font-bold mt-1">
+              Análise emocional completa
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">{testandoName}</p>
           </div>
-          <GradientButton><Download className="h-4 w-4" />Baixar PDF</GradientButton>
+          {report?.status === "pronto" && report.content && (
+            <GradientButton
+              onClick={() =>
+                downloadReportPdf({
+                  content: report.content!,
+                  testandoName,
+                  createdAt: report.updated_at,
+                })
+              }
+            >
+              <Download className="h-4 w-4" />
+              Baixar PDF
+            </GradientButton>
+          )}
         </div>
 
-        <section className="glass rounded-2xl p-6 mt-8">
-          <h2 className="font-display text-xl font-bold">Resumo executivo</h2>
-          <p className="text-muted-foreground mt-2">
-            Perfil analítico-explorador, com forte impulso de descoberta e capacidade de saborear pequenas alegrias. Tende a evitar conflito direto e a planejar em torno do medo. Recomenda-se trabalhar expressão assertiva e desafios de novidade controlada.
-          </p>
-        </section>
+        {isLoading && <p className="text-muted-foreground mt-10">Carregando relatório…</p>}
 
-        <h2 className="font-display text-xl font-bold mt-10 mb-4">Por emoção</h2>
-        <div className="grid sm:grid-cols-2 gap-4">
-          {blocks.map((b) => {
-            const s = themeStyle(b.theme);
-            return (
-              <div key={b.theme} className={`glass rounded-2xl p-6 border ${s.border}`}>
-                <div className="flex items-center justify-between">
-                  <h3 className={`font-display font-bold text-lg ${s.text}`}>{s.emoji} {b.title}</h3>
-                  <span className="font-display text-2xl font-bold">{b.score}</span>
-                </div>
-                <div className="h-1.5 bg-secondary rounded-full mt-3 overflow-hidden">
-                  <div className={`h-full bg-gradient-brand`} style={{ width: `${b.score}%` }} />
-                </div>
-                <p className="text-sm text-muted-foreground mt-3">{b.text}</p>
-              </div>
-            );
-          })}
-        </div>
+        {!isLoading && (!report || report.status === "erro" || !report.content) && (
+          <section className="glass rounded-2xl p-6 mt-8">
+            <p className="flex items-center gap-2 font-semibold">
+              <AlertTriangle className="h-4 w-4 text-brand-orange" />
+              {report?.status === "erro" ? "O relatório não pôde ser gerado" : "Relatório ainda não gerado"}
+            </p>
+            {report?.error && (
+              <p className="text-sm text-muted-foreground mt-2 break-words">{report.error}</p>
+            )}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <GradientButton onClick={() => void regenerate()} disabled={regenerating}>
+                {regenerating && <Loader2 className="h-4 w-4 animate-spin" />}
+                {regenerating ? "Gerando…" : "Gerar relatório agora"}
+              </GradientButton>
+              <Button variant="ghost" asChild className="cursor-pointer">
+                <Link to="/dashboard">Voltar ao painel</Link>
+              </Button>
+            </div>
+          </section>
+        )}
 
-        <section className="glass rounded-2xl p-6 mt-8">
-          <h2 className="font-display text-xl font-bold flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-brand-orange" />Pontos de atenção</h2>
-          <ul className="mt-3 space-y-2 text-sm text-muted-foreground list-disc pl-5">
-            <li>Tendência a engolir conflito pode gerar desgaste prolongado.</li>
-            <li>Buscar pertencimento pode levar a assumir responsabilidades em excesso.</li>
-          </ul>
-        </section>
-
-        <section className="glass rounded-2xl p-6 mt-6">
-          <h2 className="font-display text-xl font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-brand-purple" />Recomendações</h2>
-          <ul className="mt-3 space-y-2 text-sm text-muted-foreground list-disc pl-5">
-            <li>Praticar pequenas comunicações assertivas semanais.</li>
-            <li>Reservar tempo regular para experimentar atividades novas.</li>
-            <li>Considerar acompanhamento terapêutico para aprofundar autoconhecimento.</li>
-          </ul>
-        </section>
+        {report?.status === "pronto" && report.content && (
+          <>
+            <section className="glass rounded-2xl p-5 sm:p-8 mt-8">
+              <ReportContent content={report.content} />
+            </section>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button
+                variant="outline"
+                className="cursor-pointer"
+                onClick={() => void regenerate()}
+                disabled={regenerating}
+              >
+                {regenerating ? "Gerando…" : "Gerar novamente"}
+              </Button>
+              <Button variant="ghost" asChild className="cursor-pointer">
+                <Link to="/dashboard">Voltar ao painel</Link>
+              </Button>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
