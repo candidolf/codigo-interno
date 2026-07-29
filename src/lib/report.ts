@@ -42,10 +42,11 @@ export async function buildAnswersSummary(purchaseId: string): Promise<string> {
   const rows = (data ?? []) as any[];
   if (!rows.length) throw new Error("Nenhuma resposta encontrada para este teste.");
 
-  const byRoom = new Map<string, { order: number; items: { order: number; line: string }[] }>();
+  type RoomEntry = { order: number; items: { order: number; line: string }[] };
+  const byRoom = new Map<string, RoomEntry>();
   for (const r of rows) {
     const roomTitle = r.rooms?.title ?? "Sala";
-    const entry = byRoom.get(roomTitle) ?? { order: r.rooms?.sort_order ?? 0, items: [] };
+    const entry: RoomEntry = byRoom.get(roomTitle) ?? { order: r.rooms?.sort_order ?? 0, items: [] };
     const answer = r.other_text?.trim() ? `${r.answer_label} (${r.other_text.trim()})` : r.answer_label;
     entry.items.push({
       order: r.questions?.sort_order ?? 0,
