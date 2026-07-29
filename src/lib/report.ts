@@ -91,6 +91,7 @@ export async function generateReport(purchaseId: string): Promise<TestReport> {
   try {
     const result = await runAgent({
       agentKind: "report_analyzer",
+      purchaseId,
       variables: {
         nome: purchase.testando_name ?? "Testando",
         idade: idade ?? "não informada",
