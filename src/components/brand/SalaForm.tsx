@@ -17,7 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, Sparkles } from "lucide-react";
+import { GenerateQuestionsDialog, type DraftGenerated } from "./GenerateQuestionsDialog";
 
 type Room = {
   id: string;
@@ -30,6 +31,7 @@ type Room = {
   primary_color: string | null;
   active: boolean;
   sort_order: number;
+  generation_hint?: string | null;
 };
 
 type Answer = { id?: string; label: string; emoji: string; sort_order: number };
@@ -64,6 +66,7 @@ export function SalaForm({ room }: { room?: Room | null }) {
     age_max: room?.age_max ?? 99,
     active: room?.active ?? true,
     sort_order: room?.sort_order ?? 0,
+    generation_hint: room?.generation_hint ?? "",
   });
 
   const save = useMutation({
@@ -71,6 +74,7 @@ export function SalaForm({ room }: { room?: Room | null }) {
       const payload = {
         ...form,
         slug: form.slug || slugify(form.title),
+        generation_hint: form.generation_hint?.trim() ? form.generation_hint.trim() : null,
       };
       if (editing) {
         const { error } = await supabase.from("rooms").update(payload).eq("id", room!.id);
@@ -128,6 +132,14 @@ export function SalaForm({ room }: { room?: Room | null }) {
             <Textarea
               value={form.description ?? ""}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Contexto para a IA (opcional)</Label>
+            <Textarea
+              value={form.generation_hint ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, generation_hint: e.target.value }))}
+              placeholder="Tema e orientações que o agente deve considerar ao gerar as perguntas desta sala."
             />
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -202,17 +214,18 @@ export function SalaForm({ room }: { room?: Room | null }) {
           </div>
         </form>
 
-        {editing && <QuestionsEditor roomId={room!.id} />}
+        {editing && <QuestionsEditor roomId={room!.id} room={room!} />}
       </main>
     </div>
   );
 }
 
-function QuestionsEditor({ roomId }: { roomId: string }) {
+function QuestionsEditor({ roomId, room }: { roomId: string; room: Room }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Question | null>(null);
   const [toDelete, setToDelete] = useState<{ id: string; text: string } | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["room-questions", roomId],
@@ -294,6 +307,41 @@ function QuestionsEditor({ roomId }: { roomId: string }) {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const saveGenerated = useMutation({
+    mutationFn: async (items: DraftGenerated[]) => {
+      const base = data?.length ?? 0;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (!item.text.trim()) continue;
+        const { data: inserted, error } = await supabase
+          .from("questions")
+          .insert({ room_id: roomId, text: item.text.trim(), sort_order: base + i + 1 })
+          .select("id")
+          .single();
+        if (error) throw error;
+        const rows = item.answers
+          .filter((a) => a.label.trim())
+          .map((a, ai) => ({
+            question_id: inserted.id,
+            label: a.label.trim(),
+            emoji: a.emoji ?? "",
+            sort_order: ai,
+          }));
+        if (rows.length) {
+          const { error: aErr } = await supabase.from("answers").insert(rows);
+          if (aErr) throw aErr;
+        }
+      }
+      return items.length;
+    },
+    onSuccess: (n) => {
+      toast.success(`${n} pergunta(s) adicionada(s) à sala`);
+      qc.invalidateQueries({ queryKey: ["room-questions", roomId] });
+      setAiOpen(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const newDraft = (): Question => ({
     id: "",
     text: "",
@@ -308,8 +356,16 @@ function QuestionsEditor({ roomId }: { roomId: string }) {
 
   return (
     <section className="mt-12">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <h2 className="font-display text-xl font-bold">Perguntas da sala</h2>
+        <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setAiOpen(true)}
+          className="cursor-pointer text-sm inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border hover:bg-secondary"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-brand-purple" />
+          Gerar com IA
+        </button>
         <button
           onClick={() => {
             setDraft(newDraft());
@@ -320,6 +376,7 @@ function QuestionsEditor({ roomId }: { roomId: string }) {
           <Plus className="h-3.5 w-3.5" />
           Nova pergunta
         </button>
+        </div>
       </div>
       <div className="glass rounded-2xl divide-y divide-border">
         {isLoading && (
@@ -384,6 +441,20 @@ function QuestionsEditor({ roomId }: { roomId: string }) {
         title="Excluir pergunta?"
         description={toDelete?.text}
         onConfirm={() => toDelete && del.mutate(toDelete.id)}
+      />
+
+      <GenerateQuestionsDialog
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        room={{
+          title: room.title,
+          theme: room.theme,
+          ageMin: room.age_min,
+          ageMax: room.age_max,
+          hint: room.generation_hint ?? null,
+        }}
+        saving={saveGenerated.isPending}
+        onSave={(items) => saveGenerated.mutate(items)}
       />
     </section>
   );
