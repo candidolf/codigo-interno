@@ -29,7 +29,8 @@ export async function runAgent(input: {
   agentId?: string;
   agentKind?: AiAgent["kind"];
   variables?: Record<string, unknown>;
-  prompt?: string;
+  /** Obrigatório para usuários não-admin: compra à qual a execução se refere. */
+  purchaseId?: string;
 }): Promise<RunAgentResult> {
   const { data, error } = await supabase.functions.invoke("ef_ai_agent", {
     body: input,
