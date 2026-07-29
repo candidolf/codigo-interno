@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { themeStyle, type Room } from "@/data/mock";
+import { themeStyle, type Theme } from "@/data/mock";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Lock } from "lucide-react";
 
@@ -10,7 +10,14 @@ export function RoomCard({
   locked = false,
   lockedReason,
 }: {
-  room: Room;
+  room: {
+    slug: string;
+    title: string;
+    theme: Theme;
+    description: string;
+    ageMin: number;
+    ageMax: number;
+  };
   testId: string;
   progress?: number;
   locked?: boolean;

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import type { Question } from "@/data/mock";
+import { toast } from "sonner";
+import type { DbQuestion } from "@/lib/rooms-data";
+import { persistAnswer } from "@/lib/rooms-data";
 import { GradientButton } from "./GradientButton";
 import { cn } from "@/lib/utils";
 import { completeRoom, loadProgress, saveAnswer } from "@/lib/test-progress";
@@ -10,16 +12,19 @@ export function QuestionFlow({
   testId,
   themeClass,
   roomSlug,
+  roomId,
 }: {
-  questions: Question[];
+  questions: DbQuestion[];
   testId: string;
   themeClass: string;
   roomSlug: string;
+  roomId: string;
 }) {
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [other, setOther] = useState("");
   const [showOther, setShowOther] = useState(false);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,9 +39,27 @@ export function QuestionFlow({
   const isLast = idx === questions.length - 1;
   const progress = Math.round((idx / questions.length) * 100);
 
-  const next = () => {
-    if (!picked) return;
-    saveAnswer(testId, roomSlug, q.id, picked, picked === "other" ? other : undefined);
+  const next = async () => {
+    if (!picked || saving) return;
+    const isOther = picked === "other";
+    const chosen = q.answers.find((a) => a.id === picked);
+    setSaving(true);
+    try {
+      await persistAnswer({
+        purchaseId: testId,
+        roomId,
+        questionId: q.id,
+        answerId: isOther ? null : (chosen?.id ?? null),
+        answerLabel: isOther ? "Outros" : (chosen?.label ?? ""),
+        otherText: isOther ? other.trim() : null,
+      });
+    } catch (e: any) {
+      setSaving(false);
+      toast.error(e?.message ?? "Não foi possível salvar sua resposta.");
+      return;
+    }
+    setSaving(false);
+    saveAnswer(testId, roomSlug, q.id, picked, isOther ? other : undefined);
     setPicked(null);
     setOther("");
     setShowOther(false);
@@ -107,8 +130,12 @@ export function QuestionFlow({
           >
             ← Anterior
           </button>
-          <GradientButton size="lg" onClick={next} disabled={!picked || (picked === "other" && !other.trim())}>
-            {isLast ? "Concluir sala" : "Próxima"}
+          <GradientButton
+            size="lg"
+            onClick={next}
+            disabled={saving || !picked || (picked === "other" && !other.trim())}
+          >
+            {saving ? "Salvando…" : isLast ? "Concluir sala" : "Próxima"}
           </GradientButton>
         </div>
       </div>
