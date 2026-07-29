@@ -1,7 +1,9 @@
+import type { ReactElement } from "react";
+
 /** Renderiza o texto do relatório (markdown simples) sem dependências externas. */
 export function ReportContent({ content }: { content: string }) {
   const lines = content.split("\n");
-  const blocks: JSX.Element[] = [];
+  const blocks: ReactElement[] = [];
   let list: string[] = [];
 
   const flushList = (key: string) => {
