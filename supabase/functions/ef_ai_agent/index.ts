@@ -48,7 +48,6 @@ Deno.serve(async (req) => {
     const agentId: string | undefined = body.agentId;
     const agentKind: string | undefined = body.agentKind;
     const variables: Record<string, unknown> = body.variables ?? {};
-    const extraPrompt: string | undefined = body.prompt;
     if (!agentId && !agentKind) {
       return json({ error: "Informe agentId ou agentKind" }, 400);
     }
@@ -57,17 +56,50 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+
+    // 3a. Autorização por contexto
+    const { data: isAdmin } = await admin.rpc("has_role", {
+      _user_id: userData.user.id,
+      _role: "admin",
+    });
+
+    const purchaseId: string | undefined = body.purchaseId;
+    if (!isAdmin) {
+      // Usuários não-admin só podem executar o agente vinculado a uma compra própria.
+      if (!purchaseId || !/^[0-9a-f-]{36}$/i.test(purchaseId)) {
+        return json({ error: "Não autorizado" }, 403);
+      }
+      const { data: purchase } = await admin
+        .from("test_purchases")
+        .select("id, master_id, testando_user_id")
+        .eq("id", purchaseId)
+        .maybeSingle();
+      if (
+        !purchase ||
+        (purchase.master_id !== userData.user.id &&
+          purchase.testando_user_id !== userData.user.id)
+      ) {
+        return json({ error: "Não autorizado" }, 403);
+      }
+      // Não-admins só rodam o analisador de relatório.
+      if (agentKind && agentKind !== "report_analyzer") {
+        return json({ error: "Não autorizado" }, 403);
+      }
+      if (agentId) return json({ error: "Não autorizado" }, 403);
+    }
+
     let q = admin.from("ai_agents").select("*").eq("active", true).limit(1);
     q = agentId ? q.eq("id", agentId) : q.eq("kind", agentKind!);
     const { data: agent, error: agentErr } = await q.maybeSingle();
     if (agentErr) return json({ error: agentErr.message }, 500);
     if (!agent) return json({ error: "Agente não encontrado ou inativo" }, 404);
+    if (!isAdmin && agent.kind !== "report_analyzer") {
+      return json({ error: "Não autorizado" }, 403);
+    }
 
     // 4. Montagem do prompt
-    const userContent =
-      extraPrompt ??
-      interpolate(agent.user_prompt_template ?? "", variables) ??
-      "";
+    // Somente o template cadastrado é usado — sem prompt livre vindo do cliente.
+    const userContent = interpolate(agent.user_prompt_template ?? "", variables);
     if (!userContent.trim()) return json({ error: "Prompt do usuário vazio" }, 400);
 
     // 5. Chamada OpenAI
