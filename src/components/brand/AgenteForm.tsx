@@ -23,6 +23,34 @@ export type AiAgent = {
   sort_order: number;
 };
 
+const MODELS = [
+  {
+    value: "gpt-4o-mini",
+    label: "GPT-4o mini",
+    description: "Rápido e econômico, ideal para gerar perguntas.",
+  },
+  {
+    value: "gpt-4o",
+    label: "GPT-4o",
+    description: "Equilíbrio entre qualidade e custo, bom para análises.",
+  },
+  {
+    value: "gpt-4.1",
+    label: "GPT-4.1",
+    description: "Maior qualidade de texto e contexto longo.",
+  },
+  {
+    value: "gpt-4.1-mini",
+    label: "GPT-4.1 mini",
+    description: "Versão leve do 4.1, boa relação custo/benefício.",
+  },
+  {
+    value: "o4-mini",
+    label: "o4-mini",
+    description: "Foco em raciocínio, melhor para relatórios analíticos.",
+  },
+];
+
 export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
   const editing = !!agent;
   const navigate = useNavigate();
