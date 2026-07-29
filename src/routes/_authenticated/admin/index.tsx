@@ -14,6 +14,7 @@ import {
   DoorOpen,
   Percent,
   Briefcase,
+  Bot,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/")({ component: AdminHome });
@@ -108,6 +109,7 @@ function AdminHome() {
               <QuickLink to="/admin/salas" icon={DoorOpen} label="Salas" />
               <QuickLink to="/admin/vendedores" icon={Briefcase} label="Vendedores" />
               <QuickLink to="/admin/comissoes" icon={Percent} label="Comissões" />
+              <QuickLink to="/admin/agentes" icon={Bot} label="Agentes de IA" />
             </div>
           </div>
         </div>
