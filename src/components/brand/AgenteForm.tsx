@@ -132,12 +132,25 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
             </div>
             <div className="space-y-2">
               <Label>Modelo</Label>
-              <Input
+              <select
                 value={form.model}
                 onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
-                placeholder="gpt-4o-mini"
+                className="w-full bg-input border border-border rounded-md h-9 px-3 text-sm cursor-pointer"
                 required
-              />
+              >
+                {!MODELS.some((m) => m.value === form.model) && form.model && (
+                  <option value={form.model}>{form.model}</option>
+                )}
+                {MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                {MODELS.find((m) => m.value === form.model)?.description ??
+                  "Modelo personalizado já cadastrado."}
+              </p>
             </div>
           </div>
 
