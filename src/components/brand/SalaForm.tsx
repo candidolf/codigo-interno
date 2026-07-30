@@ -310,29 +310,39 @@ function QuestionsEditor({ roomId, room }: { roomId: string; room: Room }) {
   const saveGenerated = useMutation({
     mutationFn: async (items: DraftGenerated[]) => {
       const base = data?.length ?? 0;
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (!item.text.trim()) continue;
-        const { data: inserted, error } = await supabase
-          .from("questions")
-          .insert({ room_id: roomId, text: item.text.trim(), sort_order: base + i + 1 })
-          .select("id")
-          .single();
-        if (error) throw error;
-        const rows = item.answers
+      const valid = items.filter((it) => it.text.trim());
+      if (!valid.length) return 0;
+
+      // Insert em lote das perguntas (uma ida ao banco)…
+      const { data: inserted, error } = await supabase
+        .from("questions")
+        .insert(
+          valid.map((it, i) => ({
+            room_id: roomId,
+            text: it.text.trim(),
+            sort_order: base + i + 1,
+          })),
+        )
+        .select("id, sort_order")
+        .order("sort_order");
+      if (error) throw error;
+
+      // …e depois das alternativas (outra ida ao banco).
+      const answerRows = (inserted ?? []).flatMap((q: any, idx: number) =>
+        valid[idx].answers
           .filter((a) => a.label.trim())
           .map((a, ai) => ({
-            question_id: inserted.id,
+            question_id: q.id,
             label: a.label.trim(),
             emoji: a.emoji ?? "",
             sort_order: ai,
-          }));
-        if (rows.length) {
-          const { error: aErr } = await supabase.from("answers").insert(rows);
-          if (aErr) throw aErr;
-        }
+          })),
+      );
+      if (answerRows.length) {
+        const { error: aErr } = await supabase.from("answers").insert(answerRows);
+        if (aErr) throw aErr;
       }
-      return items.length;
+      return valid.length;
     },
     onSuccess: (n) => {
       toast.success(`${n} pergunta(s) adicionada(s) à sala`);

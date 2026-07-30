@@ -58,10 +58,11 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     if (!supabaseConfigured) return;
+    // Cancela requisições em voo antes do 401 e limpa dados protegidos.
+    await queryClient.cancelQueries();
     await supabase.auth.signOut();
-    queryClient.setQueryData(["auth", "me", userId], null);
-    await queryClient.invalidateQueries();
-  }, [queryClient, userId]);
+    queryClient.clear();
+  }, [queryClient]);
 
   // Verdade imediata: se há sessão no browser, o usuário está logado, mesmo
   // enquanto roles ainda não chegaram do servidor.

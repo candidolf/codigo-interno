@@ -16,6 +16,7 @@ function Sala() {
   const { data, isLoading } = useQuery({
     queryKey: ["rooms-with-questions"],
     queryFn: fetchRoomsWithQuestions,
+    staleTime: 5 * 60_000,
   });
   const room = data?.rooms.find((r) => r.slug === slug);
   const qs = (data?.questions ?? []).filter((q) => q.roomSlug === slug);

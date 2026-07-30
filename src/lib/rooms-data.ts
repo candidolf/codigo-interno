@@ -76,12 +76,55 @@ export async function fetchQuestionsForRooms(rooms: DbRoom[]): Promise<DbQuestio
   }));
 }
 
+/**
+ * Uma única consulta aninhada (rooms -> questions -> answers) em vez de
+ * três idas sequenciais ao banco.
+ */
 export async function fetchRoomsWithQuestions(): Promise<{
   rooms: DbRoom[];
   questions: DbQuestion[];
 }> {
-  const rooms = await fetchActiveRooms();
-  const questions = await fetchQuestionsForRooms(rooms);
+  const { data, error } = await supabase
+    .from("rooms")
+    .select(
+      "id, slug, title, theme, description, age_min, age_max, sort_order, generation_hint, questions(id, text, sort_order, answers(id, label, emoji, sort_order))",
+    )
+    .eq("active", true)
+    .order("sort_order");
+  if (error) throw error;
+
+  const rooms: DbRoom[] = [];
+  const questions: DbQuestion[] = [];
+
+  for (const r of (data ?? []) as any[]) {
+    rooms.push({
+      id: r.id,
+      slug: r.slug,
+      title: r.title,
+      theme: r.theme as Theme,
+      description: r.description ?? "",
+      ageMin: r.age_min,
+      ageMax: r.age_max,
+      sortOrder: r.sort_order,
+      generationHint: r.generation_hint ?? null,
+    });
+    const qs = ((r.questions ?? []) as any[]).sort(
+      (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+    );
+    for (const q of qs) {
+      questions.push({
+        id: q.id,
+        roomId: r.id,
+        roomSlug: r.slug,
+        text: q.text,
+        sortOrder: q.sort_order,
+        answers: ((q.answers ?? []) as any[])
+          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+          .map((a) => ({ id: a.id, label: a.label, emoji: a.emoji ?? "" })),
+      });
+    }
+  }
+
   return { rooms, questions };
 }
 
