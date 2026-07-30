@@ -133,6 +133,7 @@ function RootComponent() {
         queryClient.invalidateQueries({ queryKey: ["auth"] });
         queryClient.invalidateQueries({ queryKey: ["my-purchases"] });
         queryClient.invalidateQueries({ queryKey: ["profile"] });
+        queryClient.invalidateQueries({ queryKey: ["my-profile"] });
       }
     });
     return () => sub.subscription.unsubscribe();

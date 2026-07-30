@@ -33,6 +33,7 @@ function Salas() {
   const { data: roomsData, isLoading: loadingRooms } = useQuery({
     queryKey: ["rooms-with-questions"],
     queryFn: fetchRoomsWithQuestions,
+    staleTime: 5 * 60_000,
   });
 
   const [state, setState] = useState<ProgressState>(() => loadProgress(id));
