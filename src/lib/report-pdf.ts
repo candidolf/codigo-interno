@@ -1,10 +1,9 @@
-import { jsPDF } from "jspdf";
-
-export function downloadReportPdf(opts: {
+export async function downloadReportPdf(opts: {
   content: string;
   testandoName: string;
   createdAt?: string | null;
 }) {
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
