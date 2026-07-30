@@ -129,7 +129,10 @@ function RootComponent() {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
         router.invalidate();
-        queryClient.invalidateQueries();
+        // Invalida só o que depende da sessão, em vez de derrubar todo o cache.
+        queryClient.invalidateQueries({ queryKey: ["auth"] });
+        queryClient.invalidateQueries({ queryKey: ["my-purchases"] });
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
       }
     });
     return () => sub.subscription.unsubscribe();
