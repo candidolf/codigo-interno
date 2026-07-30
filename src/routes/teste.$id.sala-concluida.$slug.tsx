@@ -14,6 +14,7 @@ function SalaConcluida() {
   const { id, slug } = Route.useParams();
   const { data, isLoading } = useQuery({
     queryKey: ["rooms-with-questions"],
+    staleTime: 5 * 60_000,
     queryFn: fetchRoomsWithQuestions,
   });
   const rooms = data?.rooms ?? [];
