@@ -103,31 +103,75 @@ Deno.serve(async (req) => {
     if (!userContent.trim()) return json({ error: "Prompt do usuário vazio" }, 400);
 
     // 5. Chamada OpenAI
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: agent.model,
-        temperature: Number(agent.temperature),
-        max_tokens: agent.max_tokens,
-        ...(agent.response_format === "json_object"
-          ? { response_format: { type: "json_object" } }
-          : {}),
-        messages: [
-          { role: "system", content: agent.system_prompt },
-          { role: "user", content: userContent },
-        ],
-      }),
-    });
+    const model: string = String(agent.model ?? "");
+    // Modelos de raciocínio (o1/o3/o4/gpt-5) exigem max_completion_tokens e não aceitam temperature.
+    const isReasoning = /^(o\d|gpt-5)/i.test(model);
+
+    const baseBody: Record<string, unknown> = {
+      model,
+      ...(agent.response_format === "json_object"
+        ? { response_format: { type: "json_object" } }
+        : {}),
+      messages: [
+        { role: "system", content: agent.system_prompt },
+        { role: "user", content: userContent },
+      ],
+    };
+
+    let useCompletionTokens = isReasoning;
+    let sendTemperature = !isReasoning;
+
+    const callOpenAI = () => {
+      const body: Record<string, unknown> = { ...baseBody };
+      if (agent.max_tokens) {
+        if (useCompletionTokens) body.max_completion_tokens = agent.max_tokens;
+        else body.max_tokens = agent.max_tokens;
+      }
+      if (sendTemperature) body.temperature = Number(agent.temperature);
+      return fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${openaiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    };
+
+    let res = await callOpenAI();
+
+    // Retry adaptativo para parâmetros não suportados pelo modelo.
+    for (let attempt = 0; attempt < 2 && !res.ok; attempt++) {
+      const detail = await res.clone().text();
+      let changed = false;
+      if (/max_tokens.*not supported|Unsupported parameter: 'max_tokens'/i.test(detail)) {
+        if (!useCompletionTokens) {
+          useCompletionTokens = true;
+          changed = true;
+        }
+      }
+      if (/temperature/i.test(detail) && /unsupported|not supported/i.test(detail)) {
+        if (sendTemperature) {
+          sendTemperature = false;
+          changed = true;
+        }
+      }
+      if (!changed) break;
+      res = await callOpenAI();
+    }
 
     if (!res.ok) {
       const detail = await res.text();
+      let message = "Falha na OpenAI";
+      try {
+        const parsedErr = JSON.parse(detail);
+        if (parsedErr?.error?.message) message = parsedErr.error.message;
+      } catch {
+        /* mantém a mensagem padrão */
+      }
       if (res.status === 401) return json({ error: "Chave da OpenAI inválida", detail }, 401);
       if (res.status === 429) return json({ error: "Limite de uso da OpenAI atingido", detail }, 429);
-      return json({ error: "Falha na OpenAI", detail }, res.status);
+      return json({ error: message, detail }, res.status);
     }
 
     const data = await res.json();
