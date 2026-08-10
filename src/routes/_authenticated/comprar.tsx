@@ -226,12 +226,12 @@ function Comprar() {
                 {loading ? "Processando..." : "Ir para pagamento"}
               </GradientButton>
               <p className="text-xs text-muted-foreground mt-3 text-center">
-                Pagamento processado pelo Asaas em ambiente seguro.
+                Modo de teste: nenhuma cobrança real será feita.
               </p>
             </aside>
             <Alert>
               <AlertDescription>
-                Você será direcionado a uma página segura do Asaas para escolher entre PIX, cartão de crédito ou boleto. A liberação do teste é automática após a confirmação.
+                O pagamento está temporariamente desativado para testes. Ao confirmar, a compra é registrada como paga e o teste é liberado imediatamente.
               </AlertDescription>
             </Alert>
           </div>
