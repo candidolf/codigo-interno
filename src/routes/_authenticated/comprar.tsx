@@ -15,13 +15,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/comprar")({
   component: Comprar,
-  validateSearch: (search: Record<string, unknown>) => ({
-    destinatario: (search.destinatario === "outro" ? "outro" : "eu") as "eu" | "outro",
-  }),
+  validateSearch: (search: Record<string, unknown>): { destinatario?: "eu" | "outro" } =>
+    search.destinatario === "outro"
+      ? { destinatario: "outro" }
+      : search.destinatario === "eu"
+        ? { destinatario: "eu" }
+        : {},
 });
 
 function Comprar() {
-  const { destinatario: initialDest } = Route.useSearch();
+  const { destinatario: initialDest = "eu" } = Route.useSearch();
   const navigate = useNavigate();
   const buy = useServerFn(createPurchase);
   const fetchProfile = useServerFn(getMyProfile);
