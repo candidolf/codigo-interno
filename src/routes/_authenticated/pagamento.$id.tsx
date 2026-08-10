@@ -91,9 +91,11 @@ function Pagamento() {
     <div className="min-h-screen">
       <BrandHeader />
       <main className="container mx-auto px-6 py-12 max-w-2xl">
-        <h1 className="font-display text-3xl sm:text-4xl font-bold">Aguardando pagamento</h1>
+        <h1 className="font-display text-3xl sm:text-4xl font-bold">
+          {data && PAID.has(data.purchaseStatus) ? "Pagamento confirmado" : "Processando pagamento"}
+        </h1>
         <p className="text-muted-foreground mt-2">
-          A fatura foi aberta em uma nova aba. Conclua o pagamento por lá — liberamos seu teste automaticamente assim que o ASAAS confirmar.
+          Estamos confirmando sua compra e liberamos o teste automaticamente em seguida.
         </p>
 
         {!data && (

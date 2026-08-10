@@ -36,9 +36,9 @@ export const createPurchase = createServerFn({ method: "POST" })
     const proto = getRequestHeader("x-forwarded-proto") ?? "https";
     const origin = process.env.APP_BASE_URL || (host ? `${proto}://${host}` : "");
 
-    // Integração com Asaas ativa. Para desligar temporariamente em testes,
-    // setar ASAAS_BYPASS=true nas secrets.
-    const asaasBypass = (process.env.ASAAS_BYPASS ?? "false").toLowerCase() === "true";
+    // Modo de teste: pagamento simulado LIGADO por padrão (nenhuma cobrança real).
+    // Para reativar o Asaas, definir ASAAS_BYPASS=false nas variáveis de ambiente.
+    const asaasBypass = (process.env.ASAAS_BYPASS ?? "true").toLowerCase() !== "false";
 
     // Valida código de vendedor quando informado (campo opcional) e captura a rate
     // para snapshot da comissão na compra.
