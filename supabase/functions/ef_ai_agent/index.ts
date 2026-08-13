@@ -124,8 +124,13 @@ Deno.serve(async (req) => {
     const callOpenAI = () => {
       const body: Record<string, unknown> = { ...baseBody };
       if (agent.max_tokens) {
-        if (useCompletionTokens) body.max_completion_tokens = agent.max_tokens;
+        if (useCompletionTokens) {
+          // Modelos de raciocínio gastam tokens "pensando"; sem folga o content volta vazio.
+          body.max_completion_tokens = Math.max(Number(agent.max_tokens), 4000);
+        }
         else body.max_tokens = agent.max_tokens;
+      } else if (useCompletionTokens) {
+        body.max_completion_tokens = 4000;
       }
       if (sendTemperature) body.temperature = Number(agent.temperature);
       return fetch("https://api.openai.com/v1/chat/completions", {
@@ -176,6 +181,21 @@ Deno.serve(async (req) => {
 
     const data = await res.json();
     const content: string = data?.choices?.[0]?.message?.content ?? "";
+    const finishReason: string = data?.choices?.[0]?.finish_reason ?? "";
+
+    if (!content.trim()) {
+      return json(
+        {
+          error:
+            finishReason === "length"
+              ? "O modelo atingiu o limite de tokens antes de responder. Aumente o limite de tokens do agente ou use um modelo não-raciocínio (ex.: gpt-4o-mini)."
+              : "O modelo retornou uma resposta vazia. Tente novamente ou troque o modelo do agente.",
+          finish_reason: finishReason,
+          usage: data?.usage ?? null,
+        },
+        502,
+      );
+    }
 
     return json({
       agent: { id: agent.id, name: agent.name, kind: agent.kind, model: agent.model },
