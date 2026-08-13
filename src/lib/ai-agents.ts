@@ -61,11 +61,19 @@ export type GeneratedQuestion = {
 export function parseGeneratedQuestions(result: RunAgentResult): GeneratedQuestion[] {
   let payload: any = result.parsed;
   if (!payload) {
+    if (!result.content?.trim()) {
+      throw new Error(
+        "O agente retornou uma resposta vazia. Aumente o limite de tokens do agente ou troque o modelo (ex.: gpt-4o-mini).",
+      );
+    }
     try {
       payload = JSON.parse(result.content);
     } catch {
       const match = result.content.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error("O agente não retornou perguntas em formato válido (JSON).");
+      if (!match)
+        throw new Error(
+          `O agente não retornou perguntas em formato válido (JSON). Resposta: ${result.content.slice(0, 160)}`,
+        );
       payload = JSON.parse(match[0]);
     }
   }
