@@ -7,8 +7,8 @@ import { GradientButton } from "@/components/brand/GradientButton";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchReport, generateReport } from "@/lib/report";
-import { downloadReportPdf, openReportPdf } from "@/lib/report-pdf";
-import { Download, ExternalLink, AlertTriangle, Loader2 } from "lucide-react";
+import { openReportPdf } from "@/lib/report-pdf";
+import { ExternalLink, AlertTriangle, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/relatorio/$id")({
   component: Relatorio,
@@ -87,14 +87,6 @@ function Relatorio() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">{testandoName}</p>
           </div>
-          {report?.status === "pronto" && pdfOptions && (
-            <GradientButton
-              onClick={() => void downloadReportPdf(pdfOptions)}
-            >
-              <Download className="h-4 w-4" />
-              Baixar PDF
-            </GradientButton>
-          )}
         </div>
 
         {isLoading && <p className="text-muted-foreground mt-10">Carregando relatório…</p>}
@@ -146,14 +138,16 @@ function Relatorio() {
                 Abra a sua jornada completa ou baixe o PDF para guardar e compartilhar.
               </p>
               <div className="mt-7 flex flex-wrap justify-center gap-3">
-                <GradientButton onClick={() => void openReportPdf(pdfOptions)}>
+                <GradientButton
+                  onClick={() =>
+                    void openReportPdf(pdfOptions).catch(() =>
+                      toast.error("Não foi possível abrir o PDF do relatório"),
+                    )
+                  }
+                >
                   <ExternalLink className="h-4 w-4" />
-                  Abrir relatório oficial
+                  Abrir ou baixar relatório oficial
                 </GradientButton>
-                <Button variant="outline" onClick={() => void downloadReportPdf(pdfOptions)}>
-                  <Download className="h-4 w-4" />
-                  Baixar PDF
-                </Button>
               </div>
             </section>
             <div className="mt-6 flex flex-wrap gap-3">

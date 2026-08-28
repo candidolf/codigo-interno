@@ -135,12 +135,7 @@ function drawWrapped(
 
 export async function downloadReportPdf(opts: PdfOptions) {
   const blob = await createReportPdf(opts);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `relatorio-${safeName(opts.testandoName)}.pdf`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadBlob(blob, opts.testandoName);
 }
 
 export async function openReportPdf(opts: PdfOptions) {
@@ -149,11 +144,23 @@ export async function openReportPdf(opts: PdfOptions) {
     const blob = await createReportPdf(opts);
     const url = URL.createObjectURL(blob);
     if (tab) tab.location.href = url;
+    else downloadBlob(blob, opts.testandoName);
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   } catch (error) {
     tab?.close();
     throw error;
   }
+}
+
+function downloadBlob(blob: Blob, testandoName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `relatorio-${safeName(testandoName)}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function safeName(value: string) {

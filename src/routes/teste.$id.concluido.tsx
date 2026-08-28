@@ -4,9 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Button } from "@/components/ui/button";
-import { Download, ExternalLink, Loader2, PartyPopper, AlertTriangle } from "lucide-react";
+import { ExternalLink, Loader2, PartyPopper, AlertTriangle } from "lucide-react";
 import { fetchReport, generateReport } from "@/lib/report";
-import { downloadReportPdf, openReportPdf } from "@/lib/report-pdf";
+import { openReportPdf } from "@/lib/report-pdf";
 
 export const Route = createFileRoute("/teste/$id/concluido")({ component: Concluido });
 
@@ -75,12 +75,15 @@ function Concluido() {
               Abra a sua jornada completa ou baixe o PDF para guardar.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <GradientButton onClick={() => void openReportPdf(pdfOptions)}>
+              <GradientButton
+                onClick={() =>
+                  void openReportPdf(pdfOptions).catch(() =>
+                    setError("Não foi possível abrir o PDF do relatório."),
+                  )
+                }
+              >
                 <ExternalLink className="h-4 w-4" /> Abrir relatório oficial
               </GradientButton>
-              <Button variant="outline" onClick={() => void downloadReportPdf(pdfOptions)}>
-                <Download className="h-4 w-4" /> Baixar PDF
-              </Button>
             </div>
           </section>
         )}
