@@ -15,49 +15,43 @@ import {
   Percent,
   Briefcase,
   Bot,
+  type LucideIcon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/")({ component: AdminHome });
 
-function MockBadge() {
-  return (
-    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-secondary border border-border text-muted-foreground ml-2">
-      mock
-    </span>
-  );
-}
+type DashboardStats = {
+  masters: number;
+  users: number;
+  sold: number;
+  in_progress: number;
+  completed: number;
+  current_month_cents: number;
+  previous_month_cents: number;
+  accumulated_cents: number;
+  average_ticket_cents: number;
+  commissions_cents: number;
+  monthly: { month_start: string; revenue_cents: number }[];
+};
 
-const mockBars = [
-  { m: "Dez", v: 38 },
-  { m: "Jan", v: 52 },
-  { m: "Fev", v: 47 },
-  { m: "Mar", v: 65 },
-  { m: "Abr", v: 71 },
-  { m: "Mai", v: 84 },
-];
+function brl(cents: number) {
+  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
 
 function AdminHome() {
   const stats = useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      const [rolesRes, purRes] = await Promise.all([
-        supabase.from("user_roles").select("role"),
-        supabase.from("test_purchases").select("status"),
-      ]);
-      const roles = (rolesRes.data ?? []) as { role: string }[];
-      const purchases = (purRes.data ?? []) as { status: string }[];
-      return {
-        masters: roles.filter((r) => r.role === "master").length,
-        users: roles.filter((r) => r.role === "user").length,
-        sold: purchases.length,
-        emAndamento: purchases.filter((p) => p.status === "em_andamento").length,
-        concluidos: purchases.filter((p) => p.status === "concluido").length,
-      };
+      const { data, error } = await supabase.rpc("admin_dashboard_stats");
+      if (error) throw error;
+      return data as DashboardStats;
     },
   });
 
   const s = stats.data;
-  const max = Math.max(...mockBars.map((b) => b.v));
+  const max = Math.max(...(s?.monthly ?? []).map((b) => b.revenue_cents), 1);
+  const monthLabel = (month: string) =>
+    new Date(`${month}T12:00:00`).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
 
   return (
     <div className="min-h-screen">
@@ -66,14 +60,31 @@ function AdminHome() {
         <h1 className="font-display text-4xl font-bold">Painel admin</h1>
         <p className="text-muted-foreground">Visão geral da operação.</p>
 
-        <h2 className="font-display text-lg font-bold mt-10 mb-3 flex items-center">
-          Financeiro <MockBadge />
-        </h2>
+        <h2 className="font-display text-lg font-bold mt-10 mb-3 flex items-center">Financeiro</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={DollarSign} label="Receita do mês" value="R$ 24.510,00" hint="vs. R$ 19.880 anterior" />
-          <StatCard icon={TrendingUp} label="Receita acumulada" value="R$ 187.330,00" hint="últimos 12 meses" />
-          <StatCard icon={ShoppingBag} label="Ticket médio" value="R$ 29,90" />
-          <StatCard icon={Percent} label="Comissões a pagar" value="R$ 4.902,00" hint="próximo ciclo" />
+          <StatCard
+            icon={DollarSign}
+            label="Receita do mês"
+            value={s ? brl(s.current_month_cents) : "—"}
+            hint={s ? `vs. ${brl(s.previous_month_cents)} anterior` : undefined}
+          />
+          <StatCard
+            icon={TrendingUp}
+            label="Receita acumulada"
+            value={s ? brl(s.accumulated_cents) : "—"}
+            hint="últimos 12 meses"
+          />
+          <StatCard
+            icon={ShoppingBag}
+            label="Ticket médio"
+            value={s ? brl(s.average_ticket_cents) : "—"}
+          />
+          <StatCard
+            icon={Percent}
+            label="Comissões a pagar"
+            value={s ? brl(s.commissions_cents) : "—"}
+            hint="vendas pagas"
+          />
         </div>
 
         <h2 className="font-display text-lg font-bold mt-10 mb-3">Operação</h2>
@@ -81,23 +92,21 @@ function AdminHome() {
           <StatCard icon={Users} label="Masters" value={s?.masters ?? "—"} />
           <StatCard icon={Users} label="Testandos" value={s?.users ?? "—"} />
           <StatCard icon={ShoppingBag} label="Testes vendidos" value={s?.sold ?? "—"} />
-          <StatCard icon={Activity} label="Em andamento" value={s?.emAndamento ?? "—"} />
-          <StatCard icon={CheckCircle2} label="Concluídos" value={s?.concluidos ?? "—"} />
+          <StatCard icon={Activity} label="Em andamento" value={s?.in_progress ?? "—"} />
+          <StatCard icon={CheckCircle2} label="Concluídos" value={s?.completed ?? "—"} />
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6 mt-10">
           <div className="glass rounded-2xl p-6 lg:col-span-2">
-            <h3 className="font-display font-bold flex items-center">
-              Receita por mês <MockBadge />
-            </h3>
+            <h3 className="font-display font-bold flex items-center">Receita por mês</h3>
             <div className="flex items-end gap-3 h-40 mt-6">
-              {mockBars.map((b) => (
-                <div key={b.m} className="flex-1 flex flex-col items-center gap-2">
+              {(s?.monthly ?? []).map((b) => (
+                <div key={b.month_start} className="flex-1 flex flex-col items-center gap-2">
                   <div
                     className="w-full rounded-t-md bg-gradient-brand transition-all"
-                    style={{ height: `${(b.v / max) * 100}%` }}
+                    style={{ height: `${(b.revenue_cents / max) * 100}%` }}
                   />
-                  <span className="text-xs text-muted-foreground">{b.m}</span>
+                  <span className="text-xs text-muted-foreground">{monthLabel(b.month_start)}</span>
                 </div>
               ))}
             </div>
@@ -118,7 +127,7 @@ function AdminHome() {
   );
 }
 
-function QuickLink({ to, icon: Icon, label }: { to: string; icon: any; label: string }) {
+function QuickLink({ to, icon: Icon, label }: { to: string; icon: LucideIcon; label: string }) {
   return (
     <Link
       to={to}
