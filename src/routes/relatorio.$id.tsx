@@ -102,7 +102,7 @@ function Relatorio() {
         {!isLoading && report?.status === "gerando" && (
           <section className="glass rounded-2xl p-6 mt-8">
             <p className="flex items-center gap-2 font-semibold">
-              <Loader2 className="h-4 w-4 animate-spin text-brand-purple" />A SOL está preparando o
+              <Loader2 className="h-4 w-4 animate-spin text-brand-purple" />A IA está preparando o
               relatório
             </p>
             <p className="text-sm text-muted-foreground mt-2">
