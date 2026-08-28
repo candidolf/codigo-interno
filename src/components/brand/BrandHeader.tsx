@@ -37,7 +37,6 @@ const navByRole: Record<Role, { to: string; label: string }[]> = {
   guest: [{ to: "/", label: "Início" }, { to: "/login", label: "Login" }],
   master: [
     { to: "/dashboard", label: "Início" },
-    { to: "/relatorios", label: "Relatórios" },
     { to: "/comprar", label: "Comprar teste" },
   ],
   user: [
