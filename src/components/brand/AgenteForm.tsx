@@ -25,29 +25,19 @@ export type AiAgent = {
 
 const MODELS = [
   {
-    value: "gpt-4o-mini",
-    label: "GPT-4o mini",
-    description: "Rápido e econômico, ideal para gerar perguntas.",
+    value: "gpt-5.6-sol",
+    label: "Sol",
+    description: "Mais forte para raciocínio, código e tarefas complexas.",
   },
   {
-    value: "gpt-4o",
-    label: "GPT-4o",
-    description: "Equilíbrio entre qualidade e custo, bom para análises.",
+    value: "gpt-5.6-terra",
+    label: "Terra",
+    description: "Melhor equilíbrio entre qualidade e custo.",
   },
   {
-    value: "gpt-4.1",
-    label: "GPT-4.1",
-    description: "Maior qualidade de texto e contexto longo.",
-  },
-  {
-    value: "gpt-4.1-mini",
-    label: "GPT-4.1 mini",
-    description: "Versão leve do 4.1, boa relação custo/benefício.",
-  },
-  {
-    value: "o4-mini",
-    label: "o4-mini",
-    description: "Foco em raciocínio, melhor para relatórios analíticos.",
+    value: "gpt-5.6-luna",
+    label: "Luna",
+    description: "Mais econômica para tarefas simples e alto volume.",
   },
 ];
 
@@ -59,7 +49,7 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
   const [form, setForm] = useState({
     name: agent?.name ?? "",
     kind: agent?.kind ?? "question_generator",
-    model: agent?.model ?? "gpt-4o-mini",
+    model: agent?.model ?? "gpt-5.6-terra",
     system_prompt: agent?.system_prompt ?? "",
     user_prompt_template: agent?.user_prompt_template ?? "",
     temperature: agent?.temperature ?? 0.7,
@@ -138,9 +128,6 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
                 className="w-full bg-input border border-border rounded-md h-9 px-3 text-sm cursor-pointer"
                 required
               >
-                {!MODELS.some((m) => m.value === form.model) && form.model && (
-                  <option value={form.model}>{form.model}</option>
-                )}
                 {MODELS.map((m) => (
                   <option key={m.value} value={m.value}>
                     {m.label}
@@ -149,7 +136,7 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
               </select>
               <p className="text-xs text-muted-foreground">
                 {MODELS.find((m) => m.value === form.model)?.description ??
-                  "Modelo personalizado já cadastrado."}
+                  "Selecione um dos modelos disponíveis."}
               </p>
             </div>
           </div>
@@ -201,9 +188,7 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
               <Label>Formato da resposta</Label>
               <select
                 value={form.response_format}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, response_format: e.target.value as any }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, response_format: e.target.value as any }))}
                 className="w-full bg-input border border-border rounded-md h-9 px-3 text-sm cursor-pointer"
               >
                 <option value="text">Texto</option>

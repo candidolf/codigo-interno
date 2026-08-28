@@ -8,6 +8,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const ALLOWED_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]);
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -76,8 +78,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (
         !purchase ||
-        (purchase.master_id !== userData.user.id &&
-          purchase.testando_user_id !== userData.user.id)
+        (purchase.master_id !== userData.user.id && purchase.testando_user_id !== userData.user.id)
       ) {
         return json({ error: "Não autorizado" }, 403);
       }
@@ -104,6 +105,9 @@ Deno.serve(async (req) => {
 
     // 5. Chamada OpenAI
     const model: string = String(agent.model ?? "");
+    if (!ALLOWED_MODELS.has(model)) {
+      return json({ error: "Modelo de agente inválido. Use Sol, Terra ou Luna." }, 400);
+    }
     // Modelos de raciocínio (o1/o3/o4/gpt-5) exigem max_completion_tokens e não aceitam temperature.
     const isReasoning = /^(o\d|gpt-5)/i.test(model);
 
@@ -133,8 +137,7 @@ Deno.serve(async (req) => {
         if (useCompletionTokens) {
           // Modelos de raciocínio gastam tokens "pensando"; sem folga o content volta vazio.
           body.max_completion_tokens = Math.max(Number(agent.max_tokens), 4000);
-        }
-        else body.max_tokens = agent.max_tokens;
+        } else body.max_tokens = agent.max_tokens;
       } else if (useCompletionTokens) {
         body.max_completion_tokens = 4000;
       }
@@ -181,7 +184,8 @@ Deno.serve(async (req) => {
         /* mantém a mensagem padrão */
       }
       if (res.status === 401) return json({ error: "Chave da OpenAI inválida", detail }, 401);
-      if (res.status === 429) return json({ error: "Limite de uso da OpenAI atingido", detail }, 429);
+      if (res.status === 429)
+        return json({ error: "Limite de uso da OpenAI atingido", detail }, 429);
       return json({ error: message, detail }, res.status);
     }
 
@@ -210,7 +214,7 @@ Deno.serve(async (req) => {
         {
           error:
             finishReason === "length"
-              ? "O modelo atingiu o limite de tokens antes de responder. Aumente o limite de tokens do agente ou use um modelo não-raciocínio (ex.: gpt-4o-mini)."
+              ? "O modelo atingiu o limite de tokens antes de responder. Aumente o limite de tokens do agente ou ajuste o limite de tokens configurado."
               : "O modelo retornou uma resposta vazia. Tente novamente ou troque o modelo do agente.",
           finish_reason: finishReason,
           usage: data?.usage ?? null,

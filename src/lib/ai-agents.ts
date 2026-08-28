@@ -63,7 +63,7 @@ export function parseGeneratedQuestions(result: RunAgentResult): GeneratedQuesti
   if (!payload) {
     if (!result.content?.trim()) {
       throw new Error(
-        "O agente retornou uma resposta vazia. Aumente o limite de tokens do agente ou troque o modelo (ex.: gpt-4o-mini).",
+        "O agente retornou uma resposta vazia. Aumente o limite de tokens do agente ou troque o modelo (ex.: gpt-5.6-luna).",
       );
     }
     try {
