@@ -20,9 +20,9 @@ export const validateSellerCode = createServerFn({ method: "POST" })
     z.object({ code: z.string().trim().min(1).max(64) }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
-    const code = data.code.toUpperCase();
-    const { data: seller } = await supabase
+    const { admin } = context;
+    const code = data.code.trim().toUpperCase();
+    const { data: seller } = await admin
       .from("sellers")
       .select("full_name, active")
       .eq("code", code)
@@ -35,7 +35,7 @@ export const createPurchase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => createInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId, userEmail } = context;
+    const { supabase, admin, userId, userEmail } = context;
     const host = getRequestHeader("host") ?? null;
     const proto = getRequestHeader("x-forwarded-proto") ?? "https";
     const origin = process.env.APP_BASE_URL || (host ? `${proto}://${host}` : "");
@@ -51,7 +51,7 @@ export const createPurchase = createServerFn({ method: "POST" })
       : null;
     let sellerRate: number | null = null;
     if (sellerCodeNormalized) {
-      const { data: seller } = await supabase
+      const { data: seller } = await admin
         .from("sellers")
         .select("active, commission_rate")
         .eq("code", sellerCodeNormalized)
