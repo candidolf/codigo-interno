@@ -5,11 +5,10 @@ import { toast } from "sonner";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Button } from "@/components/ui/button";
-import { ReportContent } from "@/components/brand/ReportContent";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchReport, generateReport } from "@/lib/report";
-import { downloadReportPdf } from "@/lib/report-pdf";
-import { Download, AlertTriangle, Loader2 } from "lucide-react";
+import { downloadReportPdf, openReportPdf } from "@/lib/report-pdf";
+import { Download, ExternalLink, AlertTriangle, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/relatorio/$id")({
   component: Relatorio,
@@ -59,6 +58,9 @@ function Relatorio() {
   });
 
   const testandoName = purchase?.testando_name ?? "Testando";
+  const pdfOptions = report?.content
+    ? { content: report.content, testandoName, createdAt: report.updated_at }
+    : null;
 
   const regenerate = async () => {
     setRegenerating(true);
@@ -81,19 +83,13 @@ function Relatorio() {
           <div>
             <p className="text-xs uppercase tracking-widest text-muted-foreground">Relatório</p>
             <h1 className="font-display text-3xl sm:text-4xl font-bold mt-1">
-              Análise emocional completa
+              Revelações por sala
             </h1>
             <p className="text-sm text-muted-foreground mt-1">{testandoName}</p>
           </div>
-          {report?.status === "pronto" && report.content && (
+          {report?.status === "pronto" && pdfOptions && (
             <GradientButton
-              onClick={() =>
-                downloadReportPdf({
-                  content: report.content!,
-                  testandoName,
-                  createdAt: report.updated_at,
-                })
-              }
+              onClick={() => void downloadReportPdf(pdfOptions)}
             >
               <Download className="h-4 w-4" />
               Baixar PDF
@@ -139,10 +135,26 @@ function Relatorio() {
           </section>
         )}
 
-        {report?.status === "pronto" && report.content && (
+        {report?.status === "pronto" && pdfOptions && (
           <>
-            <section className="glass rounded-2xl p-5 sm:p-8 mt-8">
-              <ReportContent content={report.content} />
+            <section className="glass rounded-2xl p-8 sm:p-12 mt-8 text-center">
+              <p className="text-xs uppercase tracking-widest text-brand-purple">Resultado oficial</p>
+              <h2 className="font-display text-2xl sm:text-3xl font-bold mt-3">
+                Seu relatório está pronto
+              </h2>
+              <p className="text-sm text-muted-foreground mt-3 max-w-lg mx-auto">
+                Abra a sua jornada completa ou baixe o PDF para guardar e compartilhar.
+              </p>
+              <div className="mt-7 flex flex-wrap justify-center gap-3">
+                <GradientButton onClick={() => void openReportPdf(pdfOptions)}>
+                  <ExternalLink className="h-4 w-4" />
+                  Abrir relatório oficial
+                </GradientButton>
+                <Button variant="outline" onClick={() => void downloadReportPdf(pdfOptions)}>
+                  <Download className="h-4 w-4" />
+                  Baixar PDF
+                </Button>
+              </div>
             </section>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button

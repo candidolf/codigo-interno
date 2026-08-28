@@ -110,7 +110,30 @@ export const ReportDocumentSchema = z.object({
 
 export type ReportDocument = z.infer<typeof ReportDocumentSchema>;
 
+const roomRevealSchema = z.object({
+  titulo: z.string().trim(),
+  codigo: z.string().trim(),
+  texto: z.string().trim(),
+  move: z.string().trim(),
+  energia: z.string().trim(),
+  trava: z.string().trim(),
+});
+
+export const RoomReportDocumentSchema = z.object({
+  schema_version: z.number().int().default(REPORT_SCHEMA_VERSION),
+  nome: z.string().trim(),
+  idade: z.union([z.string().trim(), z.number()]),
+  revelacoes: z.array(roomRevealSchema).min(1),
+});
+
+export type RoomReportDocument = z.infer<typeof RoomReportDocumentSchema>;
+
 export function parseReportDocument(value: unknown): ReportDocument {
   const parsed = typeof value === "string" ? JSON.parse(value) : value;
   return ReportDocumentSchema.parse(parsed);
+}
+
+export function parseRoomReportDocument(value: unknown): RoomReportDocument {
+  const parsed = typeof value === "string" ? JSON.parse(value) : value;
+  return RoomReportDocumentSchema.parse(parsed);
 }

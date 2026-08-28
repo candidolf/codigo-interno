@@ -1,24 +1,25 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Button } from "@/components/ui/button";
-import { Loader2, PartyPopper, AlertTriangle } from "lucide-react";
+import { Download, ExternalLink, Loader2, PartyPopper, AlertTriangle } from "lucide-react";
 import { fetchReport, generateReport } from "@/lib/report";
+import { downloadReportPdf, openReportPdf } from "@/lib/report-pdf";
 
 export const Route = createFileRoute("/teste/$id/concluido")({ component: Concluido });
 
 function Concluido() {
   const { id } = Route.useParams();
-  const navigate = useNavigate();
   const started = useRef(false);
   const [generating, setGenerating] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: existing, isLoading } = useQuery({
+  const { data: existing, isLoading, refetch } = useQuery({
     queryKey: ["test-report", id],
     queryFn: () => fetchReport(id),
+    refetchInterval: (query) => (query.state.data?.status === "gerando" ? 3000 : false),
   });
 
   const run = async () => {
@@ -26,7 +27,7 @@ function Concluido() {
     setError(null);
     try {
       await generateReport(id);
-      navigate({ to: "/relatorio/$id", params: { id } });
+      await refetch();
     } catch (caught: unknown) {
       setError(caught instanceof Error ? caught.message : "Não foi possível gerar o relatório.");
     } finally {
@@ -39,12 +40,15 @@ function Concluido() {
     started.current = true;
     if (existing?.status === "gerando" || (existing?.status === "pronto" && existing.content)) {
       setGenerating(false);
-      navigate({ to: "/relatorio/$id", params: { id } });
       return;
     }
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, existing]);
+
+  const pdfOptions = existing?.content
+    ? { content: existing.content, testandoName: "seu relatório", createdAt: existing.updated_at }
+    : null;
 
   return (
     <div className="min-h-screen">
@@ -63,6 +67,23 @@ function Concluido() {
             A IA está iniciando a análise. O relatório continuará sendo preparado em segundo plano.
           </p>
         )}
+        {!generating && !error && existing?.status === "pronto" && pdfOptions && (
+          <section className="glass rounded-2xl p-8 mt-8">
+            <p className="text-xs uppercase tracking-widest text-brand-purple">Resultado oficial</p>
+            <h2 className="font-display text-2xl font-bold mt-3">Seu relatório está pronto</h2>
+            <p className="text-sm text-muted-foreground mt-2">
+              Abra a sua jornada completa ou baixe o PDF para guardar.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <GradientButton onClick={() => void openReportPdf(pdfOptions)}>
+                <ExternalLink className="h-4 w-4" /> Abrir relatório oficial
+              </GradientButton>
+              <Button variant="outline" onClick={() => void downloadReportPdf(pdfOptions)}>
+                <Download className="h-4 w-4" /> Baixar PDF
+              </Button>
+            </div>
+          </section>
+        )}
         {error && (
           <div className="glass rounded-2xl p-5 mt-6 text-left border border-destructive/40">
             <p className="flex items-center gap-2 font-semibold text-destructive">
@@ -75,13 +96,6 @@ function Concluido() {
           {error && (
             <GradientButton onClick={() => void run()} disabled={generating}>
               Tentar novamente
-            </GradientButton>
-          )}
-          {!generating && !error && (
-            <GradientButton asChild>
-              <Link to="/relatorio/$id" params={{ id }}>
-                Ver relatório
-              </Link>
             </GradientButton>
           )}
           <Button variant="ghost" asChild className="cursor-pointer">

@@ -1,129 +1,165 @@
-import { parseReportDocument } from "@/lib/report-schema";
+import { parseRoomReportDocument } from "@/lib/report-schema";
 
-export async function downloadReportPdf(opts: {
+type PdfOptions = {
   content: string;
   testandoName: string;
   createdAt?: string | null;
-}) {
+};
+
+const COLORS = [
+  [203, 153, 55],
+  [64, 126, 240],
+  [230, 61, 143],
+  [99, 99, 236],
+  [242, 66, 70],
+  [238, 100, 180],
+  [20, 190, 140],
+  [135, 82, 238],
+] as const;
+
+export async function createReportPdf(opts: PdfOptions): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const report = parseRoomReportDocument(opts.content);
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 48;
-  const maxW = pageW - margin * 2;
-  let y = margin;
+  const margin = 58;
+  const contentW = pageW - margin * 2;
   const date = opts.createdAt ? new Date(opts.createdAt) : new Date();
-  const page = () => {
-    doc.addPage();
-    y = margin;
-  };
-  const ensure = (height: number) => {
-    if (y + height > pageH - margin) page();
-  };
-  const line = (value: string, size = 10.5, bold = false, gap = 14) => {
-    doc.setFont("helvetica", bold ? "bold" : "normal");
-    doc.setFontSize(size);
-    doc.setTextColor(35);
-    for (const part of doc.splitTextToSize(value, maxW) as string[]) {
-      ensure(gap);
-      doc.text(part, margin, y);
-      y += gap;
-    }
-  };
-  const heading = (value: string, size = 16) => {
-    ensure(28);
+  const name = report.nome || opts.testandoName;
+
+  report.revelacoes.forEach((reveal, index) => {
+    if (index > 0) doc.addPage();
+    const color = COLORS[index % COLORS.length];
+    const dark = [10, 8, 27] as const;
+    doc.setFillColor(...dark);
+    doc.rect(0, 0, pageW, pageH, "F");
+    doc.setFillColor(...color);
+    doc.roundedRect(margin - 1, 28, contentW + 2, 30, 8, 8, "F");
+    doc.setFillColor(25, 19, 31);
+    doc.rect(margin, 58, contentW, 88, "F");
+    doc.setFillColor(39, 28, 35);
+    doc.rect(margin, 146, contentW, 43, "F");
+
+    doc.setFillColor(...color);
+    doc.circle(margin + 42, 114, 30, "F");
+    doc.setTextColor(255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(size);
-    doc.setTextColor(55, 30, 110);
-    doc.text(value, margin, y);
-    y += size + 9;
-  };
-  const list = (values: unknown[]) =>
-    values.forEach((v) => line(`• ${String(v)}`, 10.5, false, 14));
-  const report = (() => {
-    try {
-      return parseReportDocument(opts.content);
-    } catch {
-      return null;
-    }
-  })();
-  doc.setFillColor(71, 42, 145);
-  doc.rect(0, 0, pageW, 115, "F");
-  doc.setTextColor(255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(25);
-  doc.text("Código Interno", margin, 55);
-  doc.setFontSize(17);
-  doc.text("Resultado oficial", margin, 82);
-  y = 155;
-  line(opts.testandoName, 22, true, 25);
-  line(date.toLocaleDateString("pt-BR"), 10.5, false, 16);
-  y += 18;
-  if (report) {
-    const sections: [string, unknown][] = [
-      ["Quem você é", report.identidade],
-      ["Seu mapa psicológico", report.mapa_psicologico],
-      ["Sua sombra e seu dom oculto", report.sombra_e_dom],
-      ["Como você funciona", report.como_funciona],
-      ["Profissões + estilo de vida", report.profissoes_estilo_de_vida],
-      ["O que desenvolver", report.desenvolvimento],
-      ["Missão dos próximos 12 meses", report.missao_12_meses],
-      ["Manual dos pais", report.manual_dos_pais],
-      ["Mensagem final", report.mensagem_final],
-      ["Seu card de identidade", report.card_identidade],
-    ];
-    sections.forEach(([title, value]) => {
-      heading(title);
-      renderValue(value, line, list, heading);
-      y += 12;
-    });
-  } else {
-    opts.content.split("\n").forEach((raw) => {
-      const value = raw.trim();
-      if (!value) {
-        y += 7;
-        return;
-      }
-      const h = value.match(/^#{1,6}\s+(.*)$/);
-      if (h) heading(h[1], 14);
-      else line(value.replace(/\*\*/g, ""));
-    });
-  }
-  const safe = opts.testandoName
-    .normalize("NFD")
-    .replace(/[^\w]+/g, "-")
-    .toLowerCase();
-  doc.save(`relatorio-${safe || "teste"}-${date.toISOString().slice(0, 10)}.pdf`);
+    doc.setFontSize(13);
+    doc.text(reveal.codigo, margin + 42, 119, { align: "center" });
+
+    doc.setTextColor(...color);
+    doc.setFontSize(12);
+    doc.text(index === 0 ? "A SALA QUE E O SEU MOTOR" : index === report.revelacoes.length - 1 ? "REVELACAO FINAL - JORNADA COMPLETA" : "REVELACAO DA SALA", margin + 84, 94);
+    doc.setTextColor(255);
+    doc.setFontSize(26);
+    doc.text(reveal.titulo.toUpperCase(), margin + 84, 130);
+    doc.setTextColor(156, 153, 177);
+    doc.setFontSize(12);
+    const ageLabel = String(report.idade) === "não informada" ? "idade não informada" : `${report.idade} anos`;
+    doc.text(`${name}  |  ${ageLabel}  |  Sala ${index + 1} de ${report.revelacoes.length}`, margin + 84, 173);
+    doc.setDrawColor(55, 48, 72);
+    doc.line(margin, 195, pageW - margin, 195);
+
+    let y = 236;
+    doc.setDrawColor(...color);
+    doc.setLineWidth(5);
+    doc.line(margin + 2, y - 8, margin + 2, y + 100);
+    y = drawWrapped(doc, reveal.texto, margin + 16, y + 4, contentW - 16, 16, 14, true, [235, 233, 244]);
+
+    y += 46;
+    y = drawCard(doc, "O QUE TE MOVE", reveal.move, margin, y, contentW, color);
+    y += 18;
+    y = drawCard(doc, "O QUE TE DA ENERGIA", reveal.energia, margin, y, contentW, color);
+    y += 18;
+    drawCard(doc, "O QUE TE TRAVA", reveal.trava, margin, y, contentW, color);
+
+    doc.setDrawColor(55, 48, 72);
+    doc.setLineWidth(1);
+    doc.line(margin, pageH - 58, pageW - margin, pageH - 58);
+    doc.setTextColor(113, 108, 145);
+    doc.setFontSize(9);
+    doc.text("METODO CODIGO INTERNO", margin, pageH - 38);
+    doc.setTextColor(...color);
+    doc.setFont("helvetica", "bold");
+    doc.text("codigointerno.com.br", pageW - margin, pageH - 38, { align: "right" });
+  });
+
+  return doc.output("blob");
 }
 
-function renderValue(
-  value: unknown,
-  line: (value: string, size?: number, bold?: boolean, gap?: number) => void,
-  list: (values: unknown[]) => void,
-  heading: (value: string, size?: number) => void,
+function drawCard(
+  doc: import("jspdf").jsPDF,
+  title: string,
+  value: string,
+  x: number,
+  y: number,
+  width: number,
+  color: readonly [number, number, number],
 ) {
-  if (typeof value === "string" || typeof value === "number") {
-    if (String(value).trim()) line(String(value));
-    return;
-  }
-  if (Array.isArray(value)) {
-    value.forEach((item) => {
-      if (typeof item === "string" || typeof item === "number") list([item]);
-      else renderValue(item, line, list, heading);
-    });
-    return;
-  }
-  if (!value || typeof value !== "object") return;
-  Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
-    if (key === "schema_version") return;
-    const label = key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
-    if (Array.isArray(item)) {
-      heading(label, 11);
-      renderValue(item, line, list, heading);
-    } else if (item && typeof item === "object") {
-      heading(label, 11);
-      renderValue(item, line, list, heading);
-    } else if (item !== undefined && item !== null && String(item).trim())
-      line(`${label}: ${String(item)}`);
+  const lines = doc.splitTextToSize(value, width - 42) as string[];
+  const height = Math.max(78, 42 + lines.length * 17);
+  doc.setFillColor(27, 23, 55);
+  doc.roundedRect(x, y, width, height, 10, 10, "F");
+  doc.setFillColor(...color);
+  doc.roundedRect(x, y, 5, height, 3, 3, "F");
+  doc.setTextColor(...color);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(title, x + 18, y + 24);
+  drawWrapped(doc, value, x + 18, y + 47, width - 36, 17, 13, false, [190, 187, 210]);
+  return y + height;
+}
+
+function drawWrapped(
+  doc: import("jspdf").jsPDF,
+  value: string,
+  x: number,
+  y: number,
+  width: number,
+  lineHeight: number,
+  fontSize: number,
+  italic: boolean,
+  color: readonly [number, number, number],
+) {
+  doc.setFont("helvetica", italic ? "italic" : "normal");
+  doc.setFontSize(fontSize);
+  doc.setTextColor(...color);
+  const lines = doc.splitTextToSize(value, width) as string[];
+  lines.forEach((line) => {
+    doc.text(line, x, y);
+    y += lineHeight;
   });
+  return y;
+}
+
+export async function downloadReportPdf(opts: PdfOptions) {
+  const blob = await createReportPdf(opts);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `relatorio-${safeName(opts.testandoName)}.pdf`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function openReportPdf(opts: PdfOptions) {
+  const tab = window.open("about:blank", "_blank");
+  try {
+    const blob = await createReportPdf(opts);
+    const url = URL.createObjectURL(blob);
+    if (tab) tab.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (error) {
+    tab?.close();
+    throw error;
+  }
+}
+
+function safeName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[^\w]+/g, "-")
+    .toLowerCase()
+    .replace(/^-|-$/g, "") || "teste";
 }

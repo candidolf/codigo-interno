@@ -11,30 +11,43 @@ const corsHeaders = {
 const ALLOWED_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]);
 const REASONING_EFFORTS = new Set(["none", "low", "medium", "high", "xhigh", "max"]);
 
-const metricSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    nome: { type: "string" },
-    percentual: { type: "number" },
-    classificacao: { type: "string" },
-    descricao: { type: "string" },
-  },
-  required: ["nome", "percentual", "classificacao", "descricao"],
-};
-
-const titledDescriptionSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: { titulo: { type: "string" }, descricao: { type: "string" } },
-  required: ["titulo", "descricao"],
-};
-
 const REPORT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
     schema_version: { type: "integer", enum: [1] },
+    nome: { type: "string" },
+    idade: { type: "string" },
+    revelacoes: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          titulo: { type: "string" },
+          codigo: { type: "string" },
+          texto: { type: "string" },
+          move: { type: "string" },
+          energia: { type: "string" },
+          trava: { type: "string" },
+        },
+        required: ["titulo", "codigo", "texto", "move", "energia", "trava"],
+      },
+    },
+  },
+  required: ["schema_version", "nome", "idade", "revelacoes"],
+};
+
+/*
+ * The report is intentionally one revelation per room. The fixed labels and
+ * visual treatment are applied by the PDF renderer; the model only writes
+ * the personalized content for each room.
+ */
+/*
+const LEGACY_REPORT_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
     identidade: {
       type: "object",
       additionalProperties: false,
@@ -179,6 +192,7 @@ const REPORT_JSON_SCHEMA = {
     "card_identidade",
   ],
 };
+*/
 
 const QUESTIONS_JSON_SCHEMA = {
   type: "object",
@@ -350,7 +364,11 @@ async function buildReportVariables(admin: AdminClient, purchaseId: string) {
           .join("\n")}`,
     )
     .join("\n\n");
-  return { nome: purchase.testando_name ?? "Testando", idade: idade ?? "não informada", respostas };
+  return {
+    nome: purchase.testando_name ?? "Testando",
+    idade: idade === null ? "não informada" : String(idade),
+    respostas,
+  };
 }
 
 async function selectReport(admin: AdminClient, purchaseId: string) {
