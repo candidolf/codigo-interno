@@ -82,7 +82,7 @@ export async function createReportPdf(opts: PdfOptions): Promise<Blob> {
     doc.text("METODO CODIGO INTERNO", margin, pageH - 38);
     doc.setTextColor(...color);
     doc.setFont("helvetica", "bold");
-    doc.text("codigointerno.com.br", pageW - margin, pageH - 38, { align: "right" });
+    doc.text("metodocodigointerno.com.br", pageW - margin, pageH - 38, { align: "right" });
   });
 
   return doc.output("blob");
@@ -156,7 +156,7 @@ function downloadBlob(blob: Blob, testandoName: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `relatorio-${safeName(testandoName)}.pdf`;
+  link.download = `relatorio_${safeName(testandoName).replace(/-/g, "_")}.pdf`;
   document.body.appendChild(link);
   link.click();
   link.remove();
