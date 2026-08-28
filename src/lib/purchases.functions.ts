@@ -7,7 +7,11 @@ const createInput = z.object({
   sellerCode: z.string().trim().max(64).optional().nullable(),
   fullName: z.string().trim().min(2).max(120),
   cpfCnpj: z.string().regex(/^\d{11}$|^\d{14}$/),
-  phone: z.string().regex(/^\d{10,11}$/).optional().nullable(),
+  phone: z
+    .string()
+    .regex(/^\d{10,11}$/)
+    .optional()
+    .nullable(),
 });
 
 export const validateSellerCode = createServerFn({ method: "POST" })
@@ -36,9 +40,9 @@ export const createPurchase = createServerFn({ method: "POST" })
     const proto = getRequestHeader("x-forwarded-proto") ?? "https";
     const origin = process.env.APP_BASE_URL || (host ? `${proto}://${host}` : "");
 
-    // Modo de teste: pagamento simulado LIGADO por padrão (nenhuma cobrança real).
-    // Para reativar o Asaas, definir ASAAS_BYPASS=false nas variáveis de ambiente.
-    const asaasBypass = (process.env.ASAAS_BYPASS ?? "true").toLowerCase() !== "false";
+    // Fail-safe: cobranças reais só são habilitadas por uma opção explícita.
+    const { paymentsEnabled } = await import("./pagbank.server");
+    const simulatePayment = !paymentsEnabled();
 
     // Valida código de vendedor quando informado (campo opcional) e captura a rate
     // para snapshot da comissão na compra.
@@ -61,9 +65,8 @@ export const createPurchase = createServerFn({ method: "POST" })
     const amountCents = 2990;
     const commissionCents = sellerRate != null ? Math.round(amountCents * sellerRate) : null;
 
-    // ===== Modo simulado (Asaas desligado) =====
-    if (asaasBypass) {
-      // Atualiza dados do pagador no profile (sem customer Asaas).
+    // ===== Modo simulado (PagBank desligado) =====
+    if (simulatePayment) {
       await supabase
         .from("profiles")
         .update({
@@ -94,55 +97,33 @@ export const createPurchase = createServerFn({ method: "POST" })
 
       await supabase.from("payments").insert({
         purchase_id: purchase.id,
-        asaas_customer_id: null,
-        asaas_payment_id: `SIMULATED-${purchase.id}`,
+        pagbank_order_id: `SIMULATED-${purchase.id}`,
+        pagbank_charge_id: `SIMULATED-${purchase.id}`,
         method: "SIMULATED",
-        status: "CONFIRMED",
+        status: "PAID",
         invoice_url: null,
         due_date: new Date().toISOString().slice(0, 10),
-        raw: { simulated: true } as any,
+        raw: { simulated: true } as never,
       });
 
       return {
         purchaseId: purchase.id,
-        asaasPaymentId: `SIMULATED-${purchase.id}`,
-        invoiceUrl: null as string | null,
+        pagbankOrderId: `SIMULATED-${purchase.id}`,
       };
     }
 
-    // ===== Fluxo real Asaas =====
-    const asaas = await import("./asaas.server");
-    const cfg = asaas.getAsaasConfig(host);
-
-    // 1) Cria/recupera customer no Asaas
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("asaas_customer_id, cpf_cnpj, phone, full_name")
-      .eq("id", userId)
-      .maybeSingle();
-
-    let customerId = profile?.asaas_customer_id as string | undefined;
-    if (!customerId) {
-      const customer = await asaas.createCustomer(cfg, {
-        name: data.fullName,
-        cpfCnpj: data.cpfCnpj,
-        email: userEmail ?? undefined,
-        phone: data.phone ?? undefined,
-      });
-      customerId = customer.id;
-    }
-
+    // ===== Fluxo real PagBank (PIX) =====
+    if (!userEmail) throw new Error("E-mail do pagador não disponível");
     await supabase
       .from("profiles")
       .update({
-        asaas_customer_id: customerId,
         cpf_cnpj: data.cpfCnpj,
         full_name: data.fullName,
         ...(data.phone ? { phone: data.phone } : {}),
       })
       .eq("id", userId);
 
-    // 2) Cria compra local (aguardando_pagamento)
+    // 1) Cria compra local (aguardando_pagamento)
     const { data: purchase, error } = await supabase
       .from("test_purchases")
       .insert({
@@ -152,7 +133,7 @@ export const createPurchase = createServerFn({ method: "POST" })
         seller_code: sellerCodeNormalized,
         commission_rate: sellerRate,
         commission_cents: commissionCents,
-        payment_method: "hosted",
+        payment_method: "pix",
         simulated: false,
       })
       .select("id")
@@ -162,28 +143,24 @@ export const createPurchase = createServerFn({ method: "POST" })
       throw new Error(error?.message ?? "Falha ao criar compra");
     }
 
-    // 3) Cria payment no Asaas (fatura unificada: cliente escolhe PIX/Cartão/Boleto na página do Asaas)
-    const dueDate = asaas.dueDateFromNow(3);
-    // O Asaas exige que a successUrl pertença ao domínio cadastrado em
-    // "Configurações da conta → Informações". Por isso ignoramos o `origin`
-    // da requisição (que pode ser uma URL de preview) e usamos sempre o
-    // domínio publicado. Pode ser sobrescrito via secret se necessário.
-    const rawBase =
-      process.env.ASAAS_CALLBACK_BASE_URL || "https://codigo-interno.lovable.app";
-    const callbackBase = rawBase.replace(/\/+$/, "");
-    const successUrl = `${callbackBase}/pagamento/${purchase.id}`;
-    console.log("[asaas] successUrl", successUrl);
+    // 2) Cria a cobrança PIX no PagBank.
+    const pagbank = await import("./pagbank.server");
+    const config = pagbank.getPagBankConfig();
+    const callbackBase = (process.env.PAGBANK_CALLBACK_BASE_URL || origin).replace(/\/+$/, "");
+    if (!callbackBase) throw new Error("PAGBANK_CALLBACK_BASE_URL não configurada");
 
-    let payment: Awaited<ReturnType<typeof asaas.createPayment>>;
+    let order: Awaited<ReturnType<typeof pagbank.createPixOrder>>;
     try {
-      payment = await asaas.createPayment(cfg, {
-        customer: customerId,
-        billingType: "UNDEFINED",
-        value: 29.9,
-        dueDate,
-        description: "Teste Código Interno",
-        externalReference: purchase.id,
-        callback: { successUrl, autoRedirect: true },
+      order = await pagbank.createPixOrder(config, {
+        purchaseId: purchase.id,
+        amountCents,
+        customer: {
+          name: data.fullName,
+          email: userEmail,
+          taxId: data.cpfCnpj,
+          phone: data.phone,
+        },
+        notificationUrl: `${callbackBase}/api/public/pagbank-webhook`,
       });
     } catch (err) {
       await supabase
@@ -193,22 +170,39 @@ export const createPurchase = createServerFn({ method: "POST" })
       throw err;
     }
 
-    // 4) Persiste payment local
+    const payment = pagbank.paymentData(order);
+    if (!payment.charge) {
+      await supabase
+        .from("test_purchases")
+        .update({ status: "cancelado", updated_at: new Date().toISOString() })
+        .eq("id", purchase.id);
+      throw new Error("PagBank não retornou os dados da cobrança PIX");
+    }
+
+    // 3) Persiste o pedido e a cobrança localmente.
     await supabase.from("payments").insert({
       purchase_id: purchase.id,
-      asaas_customer_id: customerId,
-      asaas_payment_id: payment.id,
-      method: "UNDEFINED",
-      status: payment.status,
-      invoice_url: payment.invoiceUrl ?? null,
-      due_date: dueDate,
-      raw: payment as any,
+      pagbank_order_id: order.id,
+      pagbank_charge_id: payment.charge.id,
+      method: "PIX",
+      status: payment.charge.status,
+      invoice_url: null,
+      pix_qr_code: payment.qrCodeUrl,
+      pix_copy_paste: payment.copyPaste,
+      due_date: payment.expirationDate?.slice(0, 10) ?? null,
+      raw: order as never,
     });
+
+    if (["DECLINED", "CANCELED"].includes(payment.charge.status)) {
+      await supabase
+        .from("test_purchases")
+        .update({ status: "cancelado", updated_at: new Date().toISOString() })
+        .eq("id", purchase.id);
+    }
 
     return {
       purchaseId: purchase.id,
-      asaasPaymentId: payment.id,
-      invoiceUrl: payment.invoiceUrl ?? null,
+      pagbankOrderId: order.id,
     };
   });
 
@@ -217,56 +211,65 @@ export const getPaymentDetails = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ purchaseId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    let { data: purchase, error } = await supabase
+    const purchaseResult = await supabase
       .from("test_purchases")
       .select("id, status, master_id")
       .eq("id", data.purchaseId)
       .single();
+    let purchase = purchaseResult.data;
+    const error = purchaseResult.error;
     if (error || !purchase) throw new Error("Compra não encontrada");
     if (purchase.master_id !== userId) throw new Error("Acesso negado");
 
     let { data: payment } = await supabase
       .from("payments")
-      .select("id, status, invoice_url, due_date, asaas_payment_id")
+      .select("id, status, pix_qr_code, pix_copy_paste, due_date, pagbank_order_id")
       .eq("purchase_id", data.purchaseId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    // Reconciliação ativa: se ainda aguardando pagamento e tem payment id real no Asaas,
-    // consulta a API do Asaas diretamente como fallback ao webhook (essencial em sandbox).
+    // Reconciliação ativa como fallback ao webhook do PagBank.
     if (
       purchase.status === "aguardando_pagamento" &&
-      payment?.asaas_payment_id &&
-      !payment.asaas_payment_id.startsWith("SIMULATED-")
+      payment?.pagbank_order_id &&
+      !payment.pagbank_order_id.startsWith("SIMULATED-")
     ) {
       try {
-        const host = getRequestHeader("host") ?? null;
-        const asaas = await import("./asaas.server");
-        const cfg = asaas.getAsaasConfig(host);
-        const remote = await asaas.getPayment(cfg, payment.asaas_payment_id);
-        const paidStatuses = new Set(["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"]);
-        if (paidStatuses.has(remote.status)) {
+        const pagbank = await import("./pagbank.server");
+        const remote = await pagbank.getOrder(pagbank.getPagBankConfig(), payment.pagbank_order_id);
+        const remotePayment = pagbank.paymentData(remote);
+        const remoteStatus = remotePayment.charge?.status;
+        if (remoteStatus === "PAID") {
           await supabase
             .from("test_purchases")
             .update({ status: "pago", updated_at: new Date().toISOString() })
             .eq("id", purchase.id);
           await supabase
             .from("payments")
-            .update({ status: remote.status, raw: remote as any })
+            .update({ status: remoteStatus, raw: remote as never })
             .eq("id", payment.id);
           purchase = { ...purchase, status: "pago" };
-          payment = { ...payment, status: remote.status };
+          payment = { ...payment, status: remoteStatus };
+        } else if (remoteStatus && ["DECLINED", "CANCELED"].includes(remoteStatus)) {
+          await supabase
+            .from("test_purchases")
+            .update({ status: "cancelado", updated_at: new Date().toISOString() })
+            .eq("id", purchase.id)
+            .eq("status", "aguardando_pagamento");
+          purchase = { ...purchase, status: "cancelado" };
+          payment = { ...payment, status: remoteStatus };
         }
       } catch (e) {
-        console.warn("[asaas] reconcile failed", (e as Error)?.message);
+        console.warn("[pagbank] reconcile failed", (e as Error)?.message);
       }
     }
 
     return {
       purchaseStatus: purchase.status as string,
       paymentStatus: payment?.status ?? null,
-      invoiceUrl: payment?.invoice_url ?? null,
+      pixQrCode: payment?.pix_qr_code ?? null,
+      pixCopyPaste: payment?.pix_copy_paste ?? null,
       dueDate: payment?.due_date ?? null,
     };
   });

@@ -25,7 +25,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as TesteIdSalasRouteImport } from './routes/teste.$id.salas'
 import { Route as TesteIdIntroRouteImport } from './routes/teste.$id.intro'
 import { Route as TesteIdConcluidoRouteImport } from './routes/teste.$id.concluido'
-import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
+import { Route as ApiPublicPagbankWebhookRouteImport } from './routes/api/public/pagbank-webhook'
 import { Route as AuthenticatedPagamentoIdRouteImport } from './routes/_authenticated/pagamento.$id'
 import { Route as AuthenticatedAdminVendedoresRouteImport } from './routes/_authenticated/admin/vendedores'
 import { Route as AuthenticatedAdminUsuariosRouteImport } from './routes/_authenticated/admin/usuarios'
@@ -124,9 +124,9 @@ const TesteIdConcluidoRoute = TesteIdConcluidoRouteImport.update({
   path: '/teste/$id/concluido',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicAsaasWebhookRoute = ApiPublicAsaasWebhookRouteImport.update({
-  id: '/api/public/asaas-webhook',
-  path: '/api/public/asaas-webhook',
+const ApiPublicPagbankWebhookRoute = ApiPublicPagbankWebhookRouteImport.update({
+  id: '/api/public/pagbank-webhook',
+  path: '/api/public/pagbank-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedPagamentoIdRoute =
@@ -254,7 +254,7 @@ export interface FileRoutesByFullPath {
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/admin/vendedores': typeof AuthenticatedAdminVendedoresRouteWithChildren
   '/pagamento/$id': typeof AuthenticatedPagamentoIdRoute
-  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
+  '/api/public/pagbank-webhook': typeof ApiPublicPagbankWebhookRoute
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
@@ -286,7 +286,7 @@ export interface FileRoutesByTo {
   '/admin/comissoes': typeof AuthenticatedAdminComissoesRoute
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/pagamento/$id': typeof AuthenticatedPagamentoIdRoute
-  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
+  '/api/public/pagbank-webhook': typeof ApiPublicPagbankWebhookRoute
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
@@ -324,7 +324,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/_authenticated/admin/vendedores': typeof AuthenticatedAdminVendedoresRouteWithChildren
   '/_authenticated/pagamento/$id': typeof AuthenticatedPagamentoIdRoute
-  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
+  '/api/public/pagbank-webhook': typeof ApiPublicPagbankWebhookRoute
   '/teste/$id/concluido': typeof TesteIdConcluidoRoute
   '/teste/$id/intro': typeof TesteIdIntroRoute
   '/teste/$id/salas': typeof TesteIdSalasRoute
@@ -362,7 +362,7 @@ export interface FileRouteTypes {
     | '/admin/usuarios'
     | '/admin/vendedores'
     | '/pagamento/$id'
-    | '/api/public/asaas-webhook'
+    | '/api/public/pagbank-webhook'
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
@@ -394,7 +394,7 @@ export interface FileRouteTypes {
     | '/admin/comissoes'
     | '/admin/usuarios'
     | '/pagamento/$id'
-    | '/api/public/asaas-webhook'
+    | '/api/public/pagbank-webhook'
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
@@ -431,7 +431,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/usuarios'
     | '/_authenticated/admin/vendedores'
     | '/_authenticated/pagamento/$id'
-    | '/api/public/asaas-webhook'
+    | '/api/public/pagbank-webhook'
     | '/teste/$id/concluido'
     | '/teste/$id/intro'
     | '/teste/$id/salas'
@@ -460,7 +460,7 @@ export interface RootRouteChildren {
   RelatoriosRoute: typeof RelatoriosRoute
   ConviteTokenRoute: typeof ConviteTokenRoute
   RelatorioIdRoute: typeof RelatorioIdRoute
-  ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
+  ApiPublicPagbankWebhookRoute: typeof ApiPublicPagbankWebhookRoute
   TesteIdConcluidoRoute: typeof TesteIdConcluidoRoute
   TesteIdIntroRoute: typeof TesteIdIntroRoute
   TesteIdSalasRoute: typeof TesteIdSalasRoute
@@ -582,11 +582,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TesteIdConcluidoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/asaas-webhook': {
-      id: '/api/public/asaas-webhook'
-      path: '/api/public/asaas-webhook'
-      fullPath: '/api/public/asaas-webhook'
-      preLoaderRoute: typeof ApiPublicAsaasWebhookRouteImport
+    '/api/public/pagbank-webhook': {
+      id: '/api/public/pagbank-webhook'
+      path: '/api/public/pagbank-webhook'
+      fullPath: '/api/public/pagbank-webhook'
+      preLoaderRoute: typeof ApiPublicPagbankWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/pagamento/$id': {
@@ -828,7 +828,7 @@ const rootRouteChildren: RootRouteChildren = {
   RelatoriosRoute: RelatoriosRoute,
   ConviteTokenRoute: ConviteTokenRoute,
   RelatorioIdRoute: RelatorioIdRoute,
-  ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,
+  ApiPublicPagbankWebhookRoute: ApiPublicPagbankWebhookRoute,
   TesteIdConcluidoRoute: TesteIdConcluidoRoute,
   TesteIdIntroRoute: TesteIdIntroRoute,
   TesteIdSalasRoute: TesteIdSalasRoute,

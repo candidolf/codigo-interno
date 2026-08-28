@@ -36,7 +36,9 @@ function Comprar() {
   });
   const [destinatario, setDestinatario] = useState<"eu" | "outro">(initialDest);
   const [sellerCode, setSellerCode] = useState("");
-  const [sellerStatus, setSellerStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [sellerStatus, setSellerStatus] = useState<"idle" | "checking" | "valid" | "invalid">(
+    "idle",
+  );
   const [sellerName, setSellerName] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
@@ -97,7 +99,7 @@ function Comprar() {
       // refresca o token sozinho — não forçamos refresh aqui.
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session?.access_token) {
-        navigate({ to: "/login", search: { redirect: "/comprar" } as any });
+        navigate({ to: "/login", search: { redirect: "/comprar" } });
         return;
       }
 
@@ -110,28 +112,18 @@ function Comprar() {
         },
       });
 
-      // Persiste o destinatário escolhido para usar quando o Asaas redirecionar de volta.
+      // Persiste o destinatário escolhido para a etapa de liberação do teste.
       try {
         sessionStorage.setItem(`purchase:${res.purchaseId}:dest`, destinatario);
       } catch {
         /* noop */
       }
 
-      if (res.invoiceUrl) {
-        // Fluxo real: tenta abrir a fatura do Asaas em nova aba e SEMPRE
-        // mantém a aba atual na tela de aguardando pagamento (polling +
-        // webhook liberam o teste). Se a popup for bloqueada, a tela de
-        // pagamento mostra um botão "Abrir fatura" para o usuário abrir
-        // manualmente — nunca redirecionamos a aba atual para o Asaas.
-        window.open(res.invoiceUrl, "_blank", "noopener,noreferrer");
-        navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } });
-      } else {
-        // Modo simulado (Asaas desligado): segue direto para a tela de pagamento,
-        // que detecta status "pago" e libera o teste.
-        navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } });
-      }
-    } catch (err: any) {
-      const msg = err?.message ?? "Falha ao processar pagamento.";
+      // No modo simulado a compra já estará paga. No modo real, esta tela
+      // exibirá o QR Code PIX retornado pelo PagBank.
+      navigate({ to: "/pagamento/$id", params: { id: res.purchaseId } });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Falha ao processar pagamento.";
       let friendly = msg;
       if (/token de autenticação não foi enviado/i.test(msg)) {
         friendly = "Falha ao autenticar a requisição. Recarregue a página (F5) e tente novamente.";
@@ -148,13 +140,19 @@ function Comprar() {
       <BrandHeader />
       <main className="container mx-auto px-6 py-12 max-w-3xl">
         <h1 className="font-display text-4xl font-bold">Comprar teste</h1>
-        <p className="text-muted-foreground mt-2">Pagamento único, libera 1 teste para você ou para presentear.</p>
+        <p className="text-muted-foreground mt-2">
+          Pagamento único, libera 1 teste para você ou para presentear.
+        </p>
 
         <form onSubmit={onSubmit} className="grid md:grid-cols-3 gap-6 mt-8">
           <div className="md:col-span-2 glass rounded-2xl p-6 space-y-5">
             <div>
               <Label className="mb-3 block">Para quem é este teste?</Label>
-              <RadioGroup value={destinatario} onValueChange={(v) => setDestinatario(v as "eu" | "outro")} className="grid grid-cols-2 gap-3">
+              <RadioGroup
+                value={destinatario}
+                onValueChange={(v) => setDestinatario(v as "eu" | "outro")}
+                className="grid grid-cols-2 gap-3"
+              >
                 <label className="flex items-center gap-3 p-4 rounded-xl border border-border cursor-pointer hover:bg-secondary/40">
                   <RadioGroupItem value="eu" /> <span>Para mim</span>
                 </label>
@@ -167,7 +165,12 @@ function Comprar() {
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-2 sm:col-span-2">
                 <Label>Nome completo do pagador</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Como aparece no documento" required />
+                <Input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Como aparece no documento"
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label>CPF/CNPJ</Label>
@@ -181,13 +184,19 @@ function Comprar() {
               </div>
               <div className="space-y-2">
                 <Label>Telefone (opcional)</Label>
-                <Input value={phone} onChange={(e) => setPhone(maskPhone(e.target.value))} placeholder="(11) 90000-0000" inputMode="tel" />
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(maskPhone(e.target.value))}
+                  placeholder="(11) 90000-0000"
+                  inputMode="tel"
+                />
               </div>
             </div>
 
             <div className="space-y-2 pt-2 border-t border-border">
               <Label className="flex items-center gap-2">
-                Código do vendedor <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+                Código do vendedor{" "}
+                <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
               </Label>
               <Input
                 value={sellerCode}
@@ -195,7 +204,9 @@ function Comprar() {
                 placeholder="Ex.: VEND-007"
               />
               {sellerStatus === "idle" && (
-                <p className="text-xs text-muted-foreground">Se alguém indicou esta plataforma, informe o código aqui.</p>
+                <p className="text-xs text-muted-foreground">
+                  Se alguém indicou esta plataforma, informe o código aqui.
+                </p>
               )}
               {sellerStatus === "checking" && (
                 <p className="text-xs text-muted-foreground">Verificando código…</p>
@@ -207,7 +218,11 @@ function Comprar() {
                 <p className="text-xs text-destructive">Código de vendedor não encontrado.</p>
               )}
             </div>
-            {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
           </div>
 
           <div className="h-fit space-y-4">
@@ -222,7 +237,11 @@ function Comprar() {
                 <span>Total</span>
                 <span className="text-gradient-brand">R$ 29,90</span>
               </div>
-              <GradientButton type="submit" className="w-full mt-6 cursor-pointer" disabled={loading}>
+              <GradientButton
+                type="submit"
+                className="w-full mt-6 cursor-pointer"
+                disabled={loading}
+              >
                 {loading ? "Processando..." : "Ir para pagamento"}
               </GradientButton>
               <p className="text-xs text-muted-foreground mt-3 text-center">
@@ -231,7 +250,8 @@ function Comprar() {
             </aside>
             <Alert>
               <AlertDescription>
-                O pagamento está temporariamente desativado para testes. Ao confirmar, a compra é registrada como paga e o teste é liberado imediatamente.
+                O pagamento está temporariamente desativado para testes. Ao confirmar, a compra é
+                registrada como paga e o teste é liberado imediatamente.
               </AlertDescription>
             </Alert>
           </div>
