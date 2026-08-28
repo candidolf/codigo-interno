@@ -65,8 +65,8 @@ select
   'question_generator',
   'gpt-4o-mini',
   'Você é um psicólogo infantil especialista em avaliação lúdica. Crie perguntas simples, acolhedoras e adequadas à faixa etária, sem linguagem técnica e sem induzir respostas. Responda sempre em português do Brasil.',
-  E'Sala: {{sala}}\nTema: {{tema}}\nFaixa etária: {{faixa_etaria}}\nQuantidade de perguntas: {{quantidade}}\n\nGere as perguntas com 4 alternativas cada, retornando JSON no formato {"perguntas":[{"texto":"...","alternativas":[{"emoji":"...","label":"..."}]}]}.',
-  0.70, 2000, 'json_object', 1
+  E'Sala: {{sala}}\nTema: {{tema}}\nFaixa etária: {{faixa_etaria}}\nQuantidade de perguntas: {{quantidade}}\nInstruções extras: {{instrucoes}}\n\nGere exatamente {{quantidade}} perguntas. Cada pergunta deve ter exatamente 4 alternativas: 1 correta e 3 distratores plausíveis. Varie a posição da alternativa correta entre as perguntas e não repita alternativas iguais entre perguntas. Todas as alternativas devem ter um emoji coerente com o texto. Siga as instruções extras quando preenchidas. Retorne APENAS o JSON, sem texto antes ou depois, no formato {"perguntas":[{"texto":"...","alternativas":[{"emoji":"...","label":"..."}]}]}.',
+  0.50, 3000, 'json_object', 1
 where not exists (select 1 from public.ai_agents where kind = 'question_generator');
 
 insert into public.ai_agents (name, kind, model, system_prompt, user_prompt_template, temperature, max_tokens, response_format, sort_order)

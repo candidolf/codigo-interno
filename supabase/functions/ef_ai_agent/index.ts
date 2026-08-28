@@ -121,8 +121,14 @@ Deno.serve(async (req) => {
     let useCompletionTokens = isReasoning;
     let sendTemperature = !isReasoning;
 
-    const callOpenAI = () => {
+    const callOpenAI = (retryNote?: string) => {
       const body: Record<string, unknown> = { ...baseBody };
+      if (retryNote) {
+        body.messages = [
+          ...(baseBody.messages as { role: string; content: string }[]),
+          { role: "user", content: retryNote },
+        ];
+      }
       if (agent.max_tokens) {
         if (useCompletionTokens) {
           // Modelos de raciocínio gastam tokens "pensando"; sem folga o content volta vazio.
@@ -179,9 +185,25 @@ Deno.serve(async (req) => {
       return json({ error: message, detail }, res.status);
     }
 
-    const data = await res.json();
-    const content: string = data?.choices?.[0]?.message?.content ?? "";
+    let data = await res.json();
+    let content: string = data?.choices?.[0]?.message?.content ?? "";
     const finishReason: string = data?.choices?.[0]?.finish_reason ?? "";
+
+    // Retry único para JSON inválido: alguns modelos cercam a resposta com texto/marcação.
+    if (agent.response_format === "json_object" && content.trim()) {
+      try {
+        JSON.parse(content);
+      } catch {
+        const retryRes = await callOpenAI(
+          "Sua resposta anterior não era um JSON válido. Responda apenas com o JSON no formato pedido, sem texto antes ou depois.",
+        );
+        if (retryRes.ok) {
+          const retryData = await retryRes.json();
+          content = retryData?.choices?.[0]?.message?.content ?? "";
+          data = retryData;
+        }
+      }
+    }
 
     if (!content.trim()) {
       return json(

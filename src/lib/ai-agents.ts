@@ -79,7 +79,7 @@ export function parseGeneratedQuestions(result: RunAgentResult): GeneratedQuesti
   }
   const list = payload?.perguntas ?? payload?.questions ?? payload;
   if (!Array.isArray(list)) throw new Error("O agente não retornou uma lista de perguntas.");
-  return list
+  const questions: GeneratedQuestion[] = list
     .map((q: any) => ({
       texto: String(q?.texto ?? q?.text ?? "").trim(),
       alternativas: (q?.alternativas ?? q?.answers ?? [])
@@ -90,4 +90,13 @@ export function parseGeneratedQuestions(result: RunAgentResult): GeneratedQuesti
         .filter((a: any) => a.label),
     }))
     .filter((q: GeneratedQuestion) => q.texto);
+  if (!questions.length) throw new Error("O agente não retornou nenhuma pergunta.");
+  for (const q of questions) {
+    if (q.alternativas.length < 4) {
+      throw new Error(
+        `A pergunta "${q.texto.length > 60 ? q.texto.slice(0, 60) + "…" : q.texto}" tem ${q.alternativas.length} alternativa(s); eram esperadas 4. Gere novamente ou ajuste o agente.`,
+      );
+    }
+  }
+  return questions;
 }
