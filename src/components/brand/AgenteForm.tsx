@@ -18,6 +18,7 @@ export type AiAgent = {
   user_prompt_template: string | null;
   temperature: number;
   max_tokens: number;
+  reasoning_effort: "none" | "low" | "medium" | "high" | "xhigh" | "max";
   response_format: "text" | "json_object";
   active: boolean;
   sort_order: number;
@@ -53,7 +54,8 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
     system_prompt: agent?.system_prompt ?? "",
     user_prompt_template: agent?.user_prompt_template ?? "",
     temperature: agent?.temperature ?? 0.7,
-    max_tokens: agent?.max_tokens ?? 2000,
+    max_tokens: agent?.max_tokens ?? 6000,
+    reasoning_effort: agent?.reasoning_effort ?? "low",
     response_format: agent?.response_format ?? "text",
     active: agent?.active ?? true,
     sort_order: agent?.sort_order ?? 0,
@@ -75,7 +77,8 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
       qc.invalidateQueries({ queryKey: ["admin-ai-agents"] });
       navigate({ to: "/admin/agentes" });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o agente"),
   });
 
   return (
@@ -113,7 +116,12 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
               <Label>Tipo</Label>
               <select
                 value={form.kind}
-                onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as any }))}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    kind: e.target.value as AiAgent["kind"],
+                  }))
+                }
                 className="w-full bg-input border border-border rounded-md h-9 px-3 text-sm cursor-pointer"
               >
                 <option value="question_generator">Gerador de perguntas</option>
@@ -164,7 +172,7 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="space-y-2">
               <Label>Temperatura</Label>
               <Input
@@ -180,15 +188,42 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
               <Label>Máx. de tokens</Label>
               <Input
                 type="number"
+                min="2048"
+                max="128000"
                 value={form.max_tokens}
                 onChange={(e) => setForm((f) => ({ ...f, max_tokens: Number(e.target.value) }))}
               />
             </div>
             <div className="space-y-2">
+              <Label>Raciocínio</Label>
+              <select
+                value={form.reasoning_effort}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    reasoning_effort: e.target.value as typeof f.reasoning_effort,
+                  }))
+                }
+                className="w-full bg-input border border-border rounded-md h-9 px-3 text-sm cursor-pointer"
+              >
+                <option value="none">Nenhum</option>
+                <option value="low">Baixo</option>
+                <option value="medium">Médio</option>
+                <option value="high">Alto</option>
+                <option value="xhigh">Muito alto</option>
+                <option value="max">Máximo</option>
+              </select>
+            </div>
+            <div className="space-y-2">
               <Label>Formato da resposta</Label>
               <select
                 value={form.response_format}
-                onChange={(e) => setForm((f) => ({ ...f, response_format: e.target.value as any }))}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    response_format: e.target.value as AiAgent["response_format"],
+                  }))
+                }
                 className="w-full bg-input border border-border rounded-md h-9 px-3 text-sm cursor-pointer"
               >
                 <option value="text">Texto</option>

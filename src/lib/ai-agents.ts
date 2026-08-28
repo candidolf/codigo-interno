@@ -21,16 +21,23 @@ export async function fetchAgents(kind: AiAgent["kind"]): Promise<AiAgent[]> {
 
 export type RunAgentResult = {
   agent: { id: string; name: string; kind: string; model: string };
-  content: string;
-  parsed: any | null;
+  content?: string;
+  parsed?: unknown | null;
+  background?: boolean;
+  responseId?: string;
+  status?: string;
+  report?: unknown;
 };
 
 export async function runAgent(input: {
+  action?: "run" | "check_report";
   agentId?: string;
   agentKind?: AiAgent["kind"];
   variables?: Record<string, unknown>;
   /** Obrigatório para usuários não-admin: compra à qual a execução se refere. */
   purchaseId?: string;
+  /** Relatórios são iniciados em background e acompanhados por polling. */
+  background?: boolean;
 }): Promise<RunAgentResult> {
   const { data, error } = await supabase.functions.invoke("ef_ai_agent", {
     body: input,
@@ -38,18 +45,22 @@ export async function runAgent(input: {
   if (error) {
     // Tenta extrair a mensagem retornada pela função
     let detail = error.message;
-    const ctx: any = (error as any).context;
+    const ctx = (error as unknown as { context?: { json?: () => Promise<unknown> } }).context;
     try {
       if (ctx && typeof ctx.json === "function") {
         const body = await ctx.json();
-        if (body?.error) detail = body.error;
+        if (body && typeof body === "object" && "error" in body) {
+          detail = String(body.error);
+        }
       }
     } catch {
       /* ignora */
     }
     throw new Error(detail || "Falha ao executar o agente de IA");
   }
-  if ((data as any)?.error) throw new Error((data as any).error);
+  if (data && typeof data === "object" && "error" in data) {
+    throw new Error(String(data.error));
+  }
   return data as RunAgentResult;
 }
 
@@ -58,8 +69,12 @@ export type GeneratedQuestion = {
   alternativas: { emoji?: string; label: string }[];
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
 export function parseGeneratedQuestions(result: RunAgentResult): GeneratedQuestion[] {
-  let payload: any = result.parsed;
+  let payload: unknown = result.parsed;
   if (!payload) {
     if (!result.content?.trim()) {
       throw new Error(
@@ -77,18 +92,27 @@ export function parseGeneratedQuestions(result: RunAgentResult): GeneratedQuesti
       payload = JSON.parse(match[0]);
     }
   }
-  const list = payload?.perguntas ?? payload?.questions ?? payload;
+  const payloadRecord = asRecord(payload);
+  const list = payloadRecord?.perguntas ?? payloadRecord?.questions ?? payload;
   if (!Array.isArray(list)) throw new Error("O agente não retornou uma lista de perguntas.");
   const questions: GeneratedQuestion[] = list
-    .map((q: any) => ({
-      texto: String(q?.texto ?? q?.text ?? "").trim(),
-      alternativas: (q?.alternativas ?? q?.answers ?? [])
-        .map((a: any) => ({
-          emoji: String(a?.emoji ?? "").trim(),
-          label: String(a?.label ?? a?.texto ?? a?.text ?? "").trim(),
-        }))
-        .filter((a: any) => a.label),
-    }))
+    .map((question) => {
+      const q = asRecord(question);
+      const rawAnswers = q?.alternativas ?? q?.answers ?? [];
+      const alternativas = (Array.isArray(rawAnswers) ? rawAnswers : [])
+        .map((answer) => {
+          const a = asRecord(answer);
+          return {
+            emoji: String(a?.emoji ?? "").trim(),
+            label: String(a?.label ?? a?.texto ?? a?.text ?? "").trim(),
+          };
+        })
+        .filter((answer) => answer.label);
+      return {
+        texto: String(q?.texto ?? q?.text ?? "").trim(),
+        alternativas,
+      };
+    })
     .filter((q: GeneratedQuestion) => q.texto);
   if (!questions.length) throw new Error("O agente não retornou nenhuma pergunta.");
   for (const q of questions) {

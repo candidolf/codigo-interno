@@ -48,9 +48,14 @@ function Relatorio() {
     },
   });
 
-  const { data: report, isLoading, refetch } = useQuery({
+  const {
+    data: report,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["test-report", id],
     queryFn: () => fetchReport(id),
+    refetchInterval: (query) => (query.state.data?.status === "gerando" ? 3000 : false),
   });
 
   const testandoName = purchase?.testando_name ?? "Testando";
@@ -60,9 +65,9 @@ function Relatorio() {
     try {
       await generateReport(id);
       await refetch();
-      toast.success("Relatório gerado");
-    } catch (e: any) {
-      toast.error(e?.message ?? "Falha ao gerar o relatório");
+      toast.success("Geração iniciada. Você pode permanecer nesta página ou voltar depois.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Falha ao gerar o relatório");
     } finally {
       setRegenerating(false);
     }
@@ -98,11 +103,26 @@ function Relatorio() {
 
         {isLoading && <p className="text-muted-foreground mt-10">Carregando relatório…</p>}
 
-        {!isLoading && (!report || report.status === "erro" || !report.content) && (
+        {!isLoading && report?.status === "gerando" && (
+          <section className="glass rounded-2xl p-6 mt-8">
+            <p className="flex items-center gap-2 font-semibold">
+              <Loader2 className="h-4 w-4 animate-spin text-brand-purple" />A SOL está preparando o
+              relatório
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              A geração continua em segundo plano. Esta página atualiza automaticamente e você
+              também pode voltar mais tarde.
+            </p>
+          </section>
+        )}
+
+        {!isLoading && (!report || report.status === "erro") && (
           <section className="glass rounded-2xl p-6 mt-8">
             <p className="flex items-center gap-2 font-semibold">
               <AlertTriangle className="h-4 w-4 text-brand-orange" />
-              {report?.status === "erro" ? "O relatório não pôde ser gerado" : "Relatório ainda não gerado"}
+              {report?.status === "erro"
+                ? "O relatório não pôde ser gerado"
+                : "Relatório ainda não gerado"}
             </p>
             {report?.error && (
               <p className="text-sm text-muted-foreground mt-2 break-words">{report.error}</p>

@@ -27,8 +27,8 @@ function Concluido() {
     try {
       await generateReport(id);
       navigate({ to: "/relatorio/$id", params: { id } });
-    } catch (e: any) {
-      setError(e?.message ?? "Não foi possível gerar o relatório.");
+    } catch (caught: unknown) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o relatório.");
     } finally {
       setGenerating(false);
     }
@@ -37,7 +37,7 @@ function Concluido() {
   useEffect(() => {
     if (isLoading || started.current) return;
     started.current = true;
-    if (existing?.status === "pronto" && existing.content) {
+    if (existing?.status === "gerando" || (existing?.status === "pronto" && existing.content)) {
       setGenerating(false);
       navigate({ to: "/relatorio/$id", params: { id } });
       return;
@@ -51,12 +51,16 @@ function Concluido() {
       <BrandHeader />
       <main className="container mx-auto px-6 py-20 max-w-xl text-center">
         <span className="inline-grid place-items-center h-20 w-20 rounded-3xl bg-gradient-brand text-white mx-auto">
-          {generating ? <Loader2 className="h-9 w-9 animate-spin" /> : <PartyPopper className="h-9 w-9" />}
+          {generating ? (
+            <Loader2 className="h-9 w-9 animate-spin" />
+          ) : (
+            <PartyPopper className="h-9 w-9" />
+          )}
         </span>
         <h1 className="font-display text-3xl sm:text-4xl font-bold mt-6">Você concluiu o teste!</h1>
         {generating && (
           <p className="text-muted-foreground mt-3">
-            A IA está analisando suas respostas e montando o relatório. Isso leva alguns instantes…
+            A IA está iniciando a análise. O relatório continuará sendo preparado em segundo plano.
           </p>
         )}
         {error && (
@@ -75,7 +79,9 @@ function Concluido() {
           )}
           {!generating && !error && (
             <GradientButton asChild>
-              <Link to="/relatorio/$id" params={{ id }}>Ver relatório</Link>
+              <Link to="/relatorio/$id" params={{ id }}>
+                Ver relatório
+              </Link>
             </GradientButton>
           )}
           <Button variant="ghost" asChild className="cursor-pointer">
