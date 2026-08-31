@@ -1,12 +1,12 @@
-import type { ReactElement } from "react";
+import type { ReactNode } from "react";
 import { parseReportDocument, type ReportDocument } from "@/lib/report-schema";
 
-/** Renderiza o contrato fixo da SOL. Mantém fallback para relatórios antigos em Markdown. */
+/** Renderiza exclusivamente o contrato final estruturado da SOL. */
 export function ReportContent({ content }: { content: string }) {
   try {
     return <StructuredReport report={parseReportDocument(content)} />;
   } catch {
-    return <LegacyReport content={content} />;
+    return <p className="text-sm text-destructive">Relatório final incompatível.</p>;
   }
 }
 
@@ -127,7 +127,7 @@ function Section({
 }: {
   title: string;
   subtitle?: string;
-  children: ReactElement | ReactElement[];
+  children: ReactNode;
 }) {
   return (
     <section>
@@ -207,24 +207,4 @@ function MetaGrid({ items }: { items: [string, string | undefined][] }) {
         ))}
     </div>
   );
-}
-function LegacyReport({ content }: { content: string }) {
-  const blocks: ReactElement[] = [];
-  content.split("\n").forEach((line, i) => {
-    const clean = line.trim();
-    if (!clean) return;
-    const h = clean.match(/^#{1,6}\s+(.*)$/);
-    blocks.push(
-      h ? (
-        <h2 key={i} className="font-display font-bold text-xl mt-6">
-          {h[1]}
-        </h2>
-      ) : (
-        <p key={i} className="text-sm leading-relaxed text-muted-foreground mt-3">
-          {clean.replace(/\*\*/g, "")}
-        </p>
-      ),
-    );
-  });
-  return <div className="report-content">{blocks}</div>;
 }

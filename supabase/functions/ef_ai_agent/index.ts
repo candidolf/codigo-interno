@@ -11,31 +11,26 @@ const corsHeaders = {
 const ALLOWED_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]);
 const REASONING_EFFORTS = new Set(["none", "low", "medium", "high", "xhigh", "max"]);
 
-const REPORT_JSON_SCHEMA = {
+const METRIC_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
-    schema_version: { type: "integer", enum: [1] },
     nome: { type: "string" },
-    idade: { type: "string" },
-    revelacoes: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          titulo: { type: "string" },
-          codigo: { type: "string" },
-          texto: { type: "string" },
-          move: { type: "string" },
-          energia: { type: "string" },
-          trava: { type: "string" },
-        },
-        required: ["titulo", "codigo", "texto", "move", "energia", "trava"],
-      },
-    },
+    percentual: { type: "number", minimum: 0, maximum: 100 },
+    classificacao: { type: "string" },
+    descricao: { type: "string" },
   },
-  required: ["schema_version", "nome", "idade", "revelacoes"],
+  required: ["nome", "percentual", "classificacao", "descricao"],
+};
+
+const TITLED_DESCRIPTION_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    titulo: { type: "string" },
+    descricao: { type: "string" },
+  },
+  required: ["titulo", "descricao"],
 };
 
 const ROOM_REPORT_JSON_SCHEMA = {
@@ -54,7 +49,7 @@ const ROOM_REPORT_JSON_SCHEMA = {
         additionalProperties: false,
         properties: {
           titulo: { type: "string" },
-          codigo: { type: "string" },
+          codigo: { type: "string", pattern: "^[A-Z0-9]{3}$" },
           texto: { type: "string" },
           move: { type: "string" },
           energia: { type: "string" },
@@ -67,16 +62,11 @@ const ROOM_REPORT_JSON_SCHEMA = {
   required: ["schema_version", "nome", "idade", "revelacoes"],
 };
 
-/*
- * The report is intentionally one revelation per room. The fixed labels and
- * visual treatment are applied by the PDF renderer; the model only writes
- * the personalized content for each room.
- */
-/*
-const LEGACY_REPORT_JSON_SCHEMA = {
+const FINAL_REPORT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
+    schema_version: { type: "integer", enum: [1] },
     identidade: {
       type: "object",
       additionalProperties: false,
@@ -107,8 +97,8 @@ const LEGACY_REPORT_JSON_SCHEMA = {
       type: "object",
       additionalProperties: false,
       properties: {
-        temperamentos: { type: "array", items: metricSchema },
-        inteligencias: { type: "array", items: metricSchema },
+        temperamentos: { type: "array", items: METRIC_JSON_SCHEMA },
+        inteligencias: { type: "array", items: METRIC_JSON_SCHEMA },
       },
       required: ["temperamentos", "inteligencias"],
     },
@@ -128,7 +118,7 @@ const LEGACY_REPORT_JSON_SCHEMA = {
       properties: {
         energiza: { type: "array", items: { type: "string" } },
         drena: { type: "array", items: { type: "string" } },
-        aprende_melhor: { type: "array", items: titledDescriptionSchema },
+        aprende_melhor: { type: "array", items: TITLED_DESCRIPTION_JSON_SCHEMA },
       },
       required: ["energiza", "drena", "aprende_melhor"],
     },
@@ -141,7 +131,7 @@ const LEGACY_REPORT_JSON_SCHEMA = {
           titulo: { type: "string" },
           compatibilidade: { type: "number" },
           descricao: { type: "string" },
-          estilos_de_vida: { type: "array", items: titledDescriptionSchema },
+          estilos_de_vida: { type: "array", items: TITLED_DESCRIPTION_JSON_SCHEMA },
           areas: { type: "array", items: { type: "string" } },
           faixas_salariais: {
             type: "array",
@@ -167,7 +157,7 @@ const LEGACY_REPORT_JSON_SCHEMA = {
         ],
       },
     },
-    desenvolvimento: { type: "array", items: titledDescriptionSchema },
+    desenvolvimento: { type: "array", items: TITLED_DESCRIPTION_JSON_SCHEMA },
     missao_12_meses: {
       type: "array",
       items: {
@@ -202,7 +192,7 @@ const LEGACY_REPORT_JSON_SCHEMA = {
         subtitulo: { type: "string" },
         frase: { type: "string" },
         tracos: { type: "array", items: { type: "string" } },
-        metricas: { type: "array", items: metricSchema },
+        metricas: { type: "array", items: METRIC_JSON_SCHEMA },
       },
       required: ["titulo", "subtitulo", "frase", "tracos", "metricas"],
     },
@@ -221,7 +211,6 @@ const LEGACY_REPORT_JSON_SCHEMA = {
     "card_identidade",
   ],
 };
-*/
 
 const QUESTIONS_JSON_SCHEMA = {
   type: "object",
@@ -318,26 +307,28 @@ async function openAIError(res: Response): Promise<string> {
 }
 
 function structuredFormat(kind: string, responseFormat: string, roomReport = false) {
+  if (kind === "report_analyzer" && !roomReport) {
+    return {
+      type: "json_schema",
+      name: "final_report",
+      strict: true,
+      schema: FINAL_REPORT_JSON_SCHEMA,
+    };
+  }
+  if (kind === "room_report_analyzer" || roomReport) {
+    return {
+      type: "json_schema",
+      name: "room_report",
+      strict: true,
+      schema: ROOM_REPORT_JSON_SCHEMA,
+    };
+  }
   if (responseFormat !== "json_object") return { type: "text" };
-  // The final document has a large, nested contract maintained by the app;
-  // json_object keeps the Edge Function compatible with existing agents while
-  // the client validates the persisted document before rendering it.
-  if (kind === "report_analyzer" && !roomReport) return { type: "json_object" };
   return {
     type: "json_schema",
-    name:
-      kind === "report_analyzer"
-        ? roomReport
-          ? "room_report"
-          : "test_report"
-        : "generated_questions",
+    name: "generated_questions",
     strict: true,
-    schema:
-      kind === "report_analyzer"
-        ? roomReport
-          ? ROOM_REPORT_JSON_SCHEMA
-          : REPORT_JSON_SCHEMA
-        : QUESTIONS_JSON_SCHEMA,
+    schema: QUESTIONS_JSON_SCHEMA,
   };
 }
 
@@ -357,7 +348,7 @@ function ageFromBirth(birth: string | null | undefined): number | null {
   return age;
 }
 
-async function buildReportVariables(admin: AdminClient, purchaseId: string) {
+async function buildReportVariables(admin: AdminClient, purchaseId: string, roomSlug?: string) {
   const { data: purchase, error: purchaseError } = await admin
     .from("test_purchases")
     .select("id, testando_name, testando_user_id")
@@ -378,7 +369,7 @@ async function buildReportVariables(admin: AdminClient, purchaseId: string) {
 
   const { data, error } = await admin
     .from("test_answers")
-    .select("answer_label, other_text, questions(text, sort_order), rooms(title, sort_order)")
+    .select("answer_label, other_text, questions(text, sort_order), rooms(slug, title, sort_order)")
     .eq("purchase_id", purchaseId);
   if (error) throw new Error(error.message);
   if (!data?.length) throw new Error("Nenhuma resposta encontrada para este teste.");
@@ -386,6 +377,7 @@ async function buildReportVariables(admin: AdminClient, purchaseId: string) {
   type RoomEntry = { order: number; items: { order: number; line: string }[] };
   const byRoom = new Map<string, RoomEntry>();
   for (const row of data as any[]) {
+    if (roomSlug && row.rooms?.slug !== roomSlug) continue;
     const roomTitle = row.rooms?.title ?? "Sala";
     const entry = byRoom.get(roomTitle) ?? { order: row.rooms?.sort_order ?? 0, items: [] };
     const answer = row.other_text?.trim()
@@ -407,6 +399,12 @@ async function buildReportVariables(admin: AdminClient, purchaseId: string) {
           .join("\n")}`,
     )
     .join("\n\n");
+  if (!respostas)
+    throw new Error(
+      roomSlug
+        ? "Nenhuma resposta encontrada para esta sala."
+        : "Nenhuma resposta encontrada para este teste.",
+    );
   return {
     nome: purchase.testando_name ?? "Testando",
     idade: idade === null ? "não informada" : String(idade),
@@ -481,7 +479,19 @@ async function finalizeReport(
     );
     return selectReport(admin, purchaseId);
   }
-  if (parsed.schema_version !== 1) {
+  const requiredFinalSections = [
+    "identidade",
+    "mapa_psicologico",
+    "sombra_e_dom",
+    "como_funciona",
+    "profissoes_estilo_de_vida",
+    "desenvolvimento",
+    "missao_12_meses",
+    "manual_dos_pais",
+    "mensagem_final",
+    "card_identidade",
+  ];
+  if (parsed.schema_version !== 1 || requiredFinalSections.some((key) => !(key in parsed))) {
     await markReportError(
       admin,
       purchaseId,
@@ -533,6 +543,30 @@ async function checkReport(admin: AdminClient, openaiKey: string, purchaseId: st
   return json({ report: await finalizeReport(admin, purchaseId, report.generation_id, data) });
 }
 
+async function saveRoomReport(
+  admin: AdminClient,
+  purchaseId: string,
+  roomSlug: string,
+  values: { status: "gerando" | "pronto" | "erro"; content?: string | null; error?: string | null },
+) {
+  const { data, error } = await admin
+    .from("test_room_reports")
+    .upsert(
+      {
+        purchase_id: purchaseId,
+        room_slug: roomSlug,
+        content: null,
+        error: null,
+        ...values,
+      },
+      { onConflict: "purchase_id,room_slug" },
+    )
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Método não permitido" }, 405);
@@ -555,12 +589,13 @@ Deno.serve(async (req) => {
     const requestBody = await req.json().catch(() => ({}));
     const action: string = requestBody.action ?? "run";
     const agentId: string | undefined = requestBody.agentId;
-    const agentKind: string | undefined = requestBody.agentKind;
+    const requestedAgentKind: string | undefined = requestBody.agentKind;
     const purchaseId: string | undefined = requestBody.purchaseId;
     const roomSlug: string | undefined = requestBody.roomSlug;
     const requestedVariables: Record<string, unknown> = requestBody.variables ?? {};
     const background = requestBody.background === true;
     const isRoomReport = action === "generate_room_report";
+    const agentKind = isRoomReport ? "room_report_analyzer" : requestedAgentKind;
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -603,19 +638,20 @@ Deno.serve(async (req) => {
     const { data: agent, error: agentErr } = await query.maybeSingle();
     if (agentErr) return json({ error: agentErr.message }, 500);
     if (!agent) return json({ error: "Agente não encontrado ou inativo" }, 404);
-    if (!isAdmin && agent.kind !== "report_analyzer") return json({ error: "Não autorizado" }, 403);
+    if (!isAdmin && agent.kind !== "report_analyzer" && agent.kind !== "room_report_analyzer")
+      return json({ error: "Não autorizado" }, 403);
 
     const model = String(agent.model ?? "");
     if (!ALLOWED_MODELS.has(model))
       return json({ error: "Modelo de agente inválido. Use Sol, Terra ou Luna." }, 400);
-    const isReport = agent.kind === "report_analyzer";
+    const isReport = agent.kind === "report_analyzer" || agent.kind === "room_report_analyzer";
     if (isReport && (!purchaseId || !purchase)) return json({ error: "Informe purchaseId" }, 400);
     const variables = isReport
-      ? await buildReportVariables(admin, purchaseId!)
+      ? await buildReportVariables(admin, purchaseId!, isRoomReport ? roomSlug : undefined)
       : requestedVariables;
     const userContent = isRoomReport
-      ? `Nome: ${variables.nome}\nIdade: ${variables.idade}\nSala: ${roomSlug}\n\nRespostas da sala:\n${variables.respostas}\n\nGere uma revelação acolhedora e específica para esta sala. Retorne somente JSON válido com schema_version 1, nome, idade e um único item em revelacoes. O item deve conter titulo, codigo, texto, move, energia e trava. Não use markdown.`
-      : interpolate(agent.user_prompt_template ?? "", variables);
+      ? `Nome: ${variables.nome}\nIdade: ${variables.idade}\nSala: ${roomSlug}\n\nRespostas da sala:\n${variables.respostas}\n\nGere uma revelação acolhedora, específica e concisa para esta sala. O titulo deve ter no máximo 5 palavras. O codigo deve ter exatamente 3 caracteres alfanuméricos maiúsculos e nunca deve copiar uma resposta. O texto principal deve ter de 2 a 3 frases curtas. Cada campo move, energia e trava deve ter no máximo 25 palavras. Retorne somente JSON válido com schema_version 1, nome, idade e um único item em revelacoes contendo titulo, codigo, texto, move, energia e trava. Não use markdown.`
+      : `Nome: ${variables.nome}\nIdade: ${variables.idade}\n\nPERGUNTAS E RESPOSTAS:\n${variables.respostas}\n\nGere o relatório final completo em português do Brasil, sem diagnóstico clínico e sem inventar fatos. Retorne somente JSON válido com schema_version 1 e estas chaves obrigatórias: identidade, mapa_psicologico, sombra_e_dom, como_funciona, profissoes_estilo_de_vida, desenvolvimento, missao_12_meses, manual_dos_pais, mensagem_final e card_identidade. Personalize todas as seções com base nas respostas.`;
     if (!userContent.trim()) return json({ error: "Prompt do usuário vazio" }, 400);
 
     let generationId: string | null = null;
@@ -643,8 +679,9 @@ Deno.serve(async (req) => {
       : isReport
         ? "low"
         : "none";
-    const configuredMax = Number(agent.max_tokens) || (isReport ? 16000 : 6000);
-    const maxOutputTokens = Math.min(128000, Math.max(configuredMax, isReport ? 16000 : 2048));
+    const recommendedMax = isRoomReport ? 4000 : isReport ? 16000 : 2048;
+    const configuredMax = Number(agent.max_tokens) || (isReport ? recommendedMax : 6000);
+    const maxOutputTokens = Math.min(128000, Math.max(configuredMax, recommendedMax));
     const openAIRequest: Record<string, unknown> = {
       model,
       instructions: agent.system_prompt,
@@ -653,7 +690,7 @@ Deno.serve(async (req) => {
       reasoning: { effort },
       text: {
         format: structuredFormat(agent.kind, agent.response_format, isRoomReport),
-        verbosity: isReport ? "medium" : "low",
+        verbosity: isRoomReport ? "low" : isReport ? "medium" : "low",
       },
       store: true,
       background: isReport && background && !isRoomReport,
@@ -662,17 +699,39 @@ Deno.serve(async (req) => {
         agent_id: agent.id,
         agent_kind: agent.kind,
         ...(purchaseId ? { purchase_id: purchaseId } : {}),
+        ...(roomSlug ? { room_slug: roomSlug } : {}),
       },
     };
 
-    const res = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(openAIRequest),
-    });
+    if (isRoomReport) {
+      await saveRoomReport(admin, purchaseId!, roomSlug!, { status: "gerando" });
+    }
+
+    let res: Response;
+    try {
+      res = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(openAIRequest),
+      });
+    } catch (error) {
+      if (isRoomReport) {
+        await saveRoomReport(admin, purchaseId!, roomSlug!, {
+          status: "erro",
+          error: error instanceof Error ? error.message : "Falha ao acessar a OpenAI.",
+        });
+      }
+      throw error;
+    }
     if (!res.ok) {
       const detail = await openAIError(res);
       if (generationId) await markReportError(admin, purchaseId!, generationId, detail);
+      if (isRoomReport) {
+        await saveRoomReport(admin, purchaseId!, roomSlug!, {
+          status: "erro",
+          error: detail.slice(0, 4000),
+        });
+      }
       if (res.status === 401) return json({ error: "Chave da OpenAI inválida" }, 401);
       if (res.status === 429) return json({ error: "Limite de uso da OpenAI atingido" }, 429);
       return json({ error: detail }, res.status);
@@ -680,29 +739,30 @@ Deno.serve(async (req) => {
 
     const data = await res.json();
     if (isRoomReport) {
-      if (data.status !== "completed") return json({ error: responseFailure(data) }, 502);
+      if (data.status !== "completed") {
+        const detail = responseFailure(data);
+        await saveRoomReport(admin, purchaseId!, roomSlug!, {
+          status: "erro",
+          error: detail.slice(0, 4000),
+        });
+        return json({ error: detail }, 502);
+      }
       const content = extractOutputText(data);
       let parsed: Record<string, any>;
       try {
         parsed = JSON.parse(content);
       } catch {
+        await saveRoomReport(admin, purchaseId!, roomSlug!, {
+          status: "erro",
+          error: "A OpenAI retornou JSON inválido.",
+        });
         return json({ error: "A OpenAI retornou JSON inválido." }, 502);
       }
-      const { data: report, error: reportError } = await admin
-        .from("test_room_reports")
-        .upsert(
-          {
-            purchase_id: purchaseId!,
-            room_slug: roomSlug!,
-            status: "pronto",
-            content: JSON.stringify(parsed),
-            error: null,
-          },
-          { onConflict: "purchase_id,room_slug" },
-        )
-        .select("*")
-        .single();
-      if (reportError) return json({ error: reportError.message }, 500);
+      const report = await saveRoomReport(admin, purchaseId!, roomSlug!, {
+        status: "pronto",
+        content: JSON.stringify(parsed),
+        error: null,
+      });
       return json({ agent: { id: agent.id, name: agent.name, kind: agent.kind, model }, report });
     }
     if (isReport && background && generationId) {

@@ -23,9 +23,12 @@ export async function fetchRoomReport(purchaseId: string, roomSlug: string) {
 
 export async function generateRoomReport(purchaseId: string, roomSlug: string) {
   const { data, error } = await supabase.functions.invoke("ef_ai_agent", {
-    body: { action: "generate_room_report", purchaseId, roomSlug, background: true },
+    body: { action: "generate_room_report", purchaseId, roomSlug },
   });
   if (error) throw error;
+  if (data && typeof data === "object" && "error" in data) {
+    throw new Error(String(data.error));
+  }
   return data as { report: RoomReport | null };
 }
 

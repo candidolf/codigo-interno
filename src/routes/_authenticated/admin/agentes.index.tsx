@@ -23,7 +23,8 @@ export const Route = createFileRoute("/_authenticated/admin/agentes/")({
 
 const kindLabel: Record<string, string> = {
   question_generator: "Gerador de perguntas",
-  report_analyzer: "Analista de relatório",
+  report_analyzer: "Analista do relatório final",
+  room_report_analyzer: "Analista de revelação por sala",
 };
 
 function AdminAgentes() {

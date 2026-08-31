@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { BrandHeader } from "@/components/brand/BrandHeader";
@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchReport, generateReport } from "@/lib/report";
 import { downloadIdentityCardPdf, downloadReportPdf } from "@/lib/report-pdf";
 import { Download, AlertTriangle, Loader2 } from "lucide-react";
-import { ReportContent } from "@/components/brand/ReportContent";
+import { parseReportDocument } from "@/lib/report-schema";
 
 export const Route = createFileRoute("/relatorio/$id")({
   component: Relatorio,
@@ -62,6 +62,15 @@ function Relatorio() {
   const pdfOptions = report?.content
     ? { content: report.content, testandoName, createdAt: report.updated_at }
     : null;
+  const hasFinalDocument = (() => {
+    if (report?.status !== "pronto" || !report.content) return false;
+    try {
+      parseReportDocument(report.content);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
 
   const regenerate = async () => {
     setRegenerating(true);
@@ -75,6 +84,17 @@ function Relatorio() {
       setRegenerating(false);
     }
   };
+
+  const autoRegenerated = useRef(false);
+  useEffect(() => {
+    if (isLoading || autoRegenerated.current || !report) return;
+    if (report.status === "pronto" && !hasFinalDocument) {
+      autoRegenerated.current = true;
+      void regenerate();
+    }
+    // A single automatic regeneration is enough; polling handles its completion.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, report, hasFinalDocument]);
 
   return (
     <div className="min-h-screen">
@@ -103,6 +123,18 @@ function Relatorio() {
           </section>
         )}
 
+        {!isLoading && regenerating && !hasFinalDocument && (
+          <section className="glass rounded-2xl p-6 mt-8">
+            <p className="flex items-center gap-2 font-semibold">
+              <Loader2 className="h-4 w-4 animate-spin text-brand-purple" /> Atualizando o relatório
+              final
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Encontramos uma versão antiga e estamos gerando o relatório no formato correto.
+            </p>
+          </section>
+        )}
+
         {!isLoading && (!report || report.status === "erro") && (
           <section className="glass rounded-2xl p-6 mt-8">
             <p className="flex items-center gap-2 font-semibold">
@@ -126,7 +158,7 @@ function Relatorio() {
           </section>
         )}
 
-        {report?.status === "pronto" && pdfOptions && (
+        {report?.status === "pronto" && hasFinalDocument && pdfOptions && (
           <>
             <section className="glass rounded-2xl p-8 sm:p-12 mt-8 text-center">
               <p className="text-xs uppercase tracking-widest text-brand-purple">
@@ -138,15 +170,13 @@ function Relatorio() {
               <p className="text-sm text-muted-foreground mt-3 max-w-lg mx-auto">
                 Consulte o relatório completo ou baixe o PDF final para guardar e compartilhar.
               </p>
-              <div className="mt-8 text-left">
-                <ReportContent content={report.content} />
-              </div>
               <div className="mt-7 flex flex-wrap justify-center gap-3">
                 <GradientButton
                   onClick={() =>
-                    void downloadReportPdf(pdfOptions).catch(() =>
-                      toast.error("Não foi possível baixar o PDF do relatório"),
-                    )
+                    void downloadReportPdf(pdfOptions).catch((error: unknown) => {
+                      console.error("Falha ao criar PDF final", error);
+                      toast.error("Não foi possível baixar o PDF do relatório");
+                    })
                   }
                 >
                   <Download className="h-4 w-4" />
@@ -155,9 +185,10 @@ function Relatorio() {
                 <Button
                   variant="outline"
                   onClick={() =>
-                    void downloadIdentityCardPdf(pdfOptions).catch(() =>
-                      toast.error("Não foi possível baixar o card"),
-                    )
+                    void downloadIdentityCardPdf(pdfOptions).catch((error: unknown) => {
+                      console.error("Falha ao criar card de identidade", error);
+                      toast.error("Não foi possível baixar o card");
+                    })
                   }
                 >
                   <Download className="h-4 w-4" /> Baixar somente o card

@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
+import { getCurrentUser } from "@/lib/auth.functions";
 import logoFull from "@/assets/logo-full.png";
 import {
   Brain,
@@ -14,7 +15,13 @@ import {
   Linkedin,
 } from "lucide-react";
 
-export const Route = createFileRoute("/")({ component: Landing });
+export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    const user = await getCurrentUser();
+    if (user) throw redirect({ to: "/dashboard" });
+  },
+  component: Landing,
+});
 
 const pillars = [
   { icon: Brain, title: "Autoconhecimento", desc: "Entenda emoções e padrões internos." },

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Button } from "@/components/ui/button";
-import { PartyPopper } from "lucide-react";
+import { AlertTriangle, Loader2, PartyPopper } from "lucide-react";
 import { themeStyle } from "@/data/mock";
 import { fetchRoomsWithQuestions } from "@/lib/rooms-data";
 import { allRoomsCompleted, loadProgress } from "@/lib/test-progress";
@@ -32,62 +32,70 @@ function SalaConcluida() {
   const started = useRef(false);
   const [roomReport, setRoomReport] = useState<Awaited<ReturnType<typeof fetchRoomReport>>>(null);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [generatingRoomReport, setGeneratingRoomReport] = useState(false);
 
-  const dist: Record<string, number> = {};
-  for (const ans of Object.values(roomState?.answers ?? {})) {
-    dist[ans] = (dist[ans] ?? 0) + 1;
-  }
   const total = qs.length;
-  const top = Object.entries(dist).sort((a, b) => b[1] - a[1])[0];
 
   const allDone = allRoomsCompleted(
     state,
     withQuestions.map((r) => r.slug),
   );
 
+  const runRoomReport = async () => {
+    setGeneratingRoomReport(true);
+    setReportError(null);
+    try {
+      const current = await fetchRoomReport(id, slug);
+      if (current?.status === "pronto" && parseRoomReport(current.content)) {
+        setRoomReport(current);
+        return;
+      }
+      const result = await generateRoomReport(id, slug);
+      if (!result.report?.content || !parseRoomReport(result.report.content)) {
+        throw new Error("A revelação retornada não está no formato esperado.");
+      }
+      setRoomReport(result.report);
+    } catch (error) {
+      setReportError(
+        error instanceof Error ? error.message : "Não foi possível gerar a revelação.",
+      );
+    } finally {
+      setGeneratingRoomReport(false);
+    }
+  };
+
   useEffect(() => {
     if (!roomState?.completedAt || started.current) return;
     started.current = true;
-    void (async () => {
-      try {
-        const current = await fetchRoomReport(id, slug);
-        if (current?.status === "pronto") {
-          setRoomReport(current);
-          return;
-        }
-        const result = await generateRoomReport(id, slug);
-        setRoomReport(result.report);
-      } catch (error) {
-        setReportError(
-          error instanceof Error ? error.message : "Não foi possível gerar a revelação.",
-        );
-      }
-    })();
+    void runRoomReport();
+    // A conclusão da sala inicia uma única geração; retentativas são explícitas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, slug, roomState?.completedAt]);
 
   if (isLoading) return <div className="p-10 text-muted-foreground">Carregando…</div>;
   if (!room) return <div className="p-10">Sala não encontrada.</div>;
   const s = themeStyle(room.theme);
+  const parsedRoomReport = parseRoomReport(roomReport?.content ?? null);
 
   return (
     <div className="min-h-screen">
       <BrandHeader />
-      <main className="container mx-auto px-6 py-16 max-w-2xl text-center">
-        <span className="inline-grid place-items-center h-20 w-20 rounded-3xl bg-gradient-brand text-white mx-auto">
-          <PartyPopper className="h-9 w-9" />
+      <main className="container mx-auto max-w-2xl px-4 py-10 text-center sm:px-6 sm:py-12">
+        <span className="mx-auto inline-grid h-14 w-14 place-items-center rounded-2xl bg-gradient-brand text-white">
+          <PartyPopper className="h-7 w-7" />
         </span>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground mt-6">
+        <p className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">
           Sala concluída
         </p>
-        <h1 className={`font-display text-4xl font-bold mt-2 ${s.text}`}>
+        <h1 className={`mt-2 font-display text-3xl font-bold sm:text-4xl ${s.text}`}>
           {s.emoji} {room.title}
         </h1>
         <p className="text-muted-foreground mt-3">Parabéns! Você concluiu esta sala.</p>
 
-        {roomReport?.content && parseRoomReport(roomReport.content) ? (
+        {parsedRoomReport ? (
           <div className="mt-8 text-left">
             <RoomReportView
-              report={parseRoomReport(roomReport.content)!}
+              report={parsedRoomReport}
               theme={room.theme}
               roomNumber={withQuestions.findIndex((r) => r.slug === slug) + 1}
               totalRooms={withQuestions.length}
@@ -97,27 +105,31 @@ function SalaConcluida() {
           <div className="glass rounded-2xl p-6 mt-8 text-left">
             <h2 className="font-display font-bold text-lg">Resumo da sala</h2>
             <p className="text-sm text-muted-foreground mt-2">{total} perguntas respondidas.</p>
-            {top && (
-              <p className="text-sm mt-3">
-                Tendência predominante: <span className="font-semibold">resposta "{top[0]}"</span>{" "}
-                em {top[1]} de {total} perguntas.
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground mt-4 italic">
-              * O relatório completo é gerado pela IA ao final de todas as salas.
-            </p>
             {reportError ? (
-              <p className="text-sm text-destructive mt-4">{reportError}</p>
+              <div className="mt-4">
+                <p className="flex items-start gap-2 text-sm text-destructive">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{reportError}</span>
+                </p>
+                <Button className="mt-4" variant="outline" onClick={() => void runRoomReport()}>
+                  Tentar gerar a revelação novamente
+                </Button>
+              </div>
             ) : (
-              <p className="text-sm text-muted-foreground mt-4">
-                Preparando sua revelação personalizada...
+              <p className="flex items-center gap-2 text-sm text-muted-foreground mt-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Preparando sua revelação personalizada…
               </p>
             )}
           </div>
         )}
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          {allDone ? (
+          {generatingRoomReport ? (
+            <Button disabled>
+              <Loader2 className="h-4 w-4 animate-spin" /> Aguarde a revelação
+            </Button>
+          ) : allDone ? (
             <GradientButton asChild>
               <Link to="/teste/$id/concluido" params={{ id }}>
                 Ver relatório final

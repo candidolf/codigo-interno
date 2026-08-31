@@ -16,17 +16,8 @@ function requireEnv(...names: string[]): string {
   return v;
 }
 
-const SUPABASE_URL = () =>
-  requireEnv("EXT_SUPABASE_URL", "SUPABASE_URL", "VITE_SUPABASE_URL");
-const SUPABASE_ANON_KEY = () =>
-  requireEnv(
-    "EXT_SUPABASE_PUBLISHABLE_KEY",
-    "SUPABASE_PUBLISHABLE_KEY",
-    "VITE_SUPABASE_PUBLISHABLE_KEY",
-    "EXT_SUPABASE_ANON_KEY",
-    "SUPABASE_ANON_KEY",
-    "VITE_SUPABASE_ANON_KEY",
-  );
+const SUPABASE_URL = () => requireEnv("SUPABASE_URL", "VITE_SUPABASE_URL");
+const SUPABASE_ANON_KEY = () => requireEnv("SUPABASE_ANON_KEY", "VITE_SUPABASE_PUBLISHABLE_KEY");
 
 /**
  * Server-side Supabase client scoped to the current request's user.
@@ -74,10 +65,7 @@ let _admin: SupabaseClient | null = null;
 export function getSupabaseAdmin(): SupabaseClient {
   if (_admin) return _admin;
   const url = SUPABASE_URL();
-  const key = requireEnv(
-    "EXT_SUPABASE_SERVICE_ROLE_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
-  );
+  const key = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
   _admin = createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });

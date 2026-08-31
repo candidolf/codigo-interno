@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 export type AiAgent = {
   id: string;
   name: string;
-  kind: "question_generator" | "report_analyzer";
+  kind: "question_generator" | "report_analyzer" | "room_report_analyzer";
   model: string;
   system_prompt: string;
   user_prompt_template: string | null;
@@ -125,7 +125,8 @@ export function AgenteForm({ agent }: { agent?: AiAgent | null }) {
                 className="w-full bg-input border border-border rounded-md h-9 px-3 text-sm cursor-pointer"
               >
                 <option value="question_generator">Gerador de perguntas</option>
-                <option value="report_analyzer">Analista de relatório</option>
+                <option value="report_analyzer">Analista do relatório final</option>
+                <option value="room_report_analyzer">Analista de revelação por sala</option>
               </select>
             </div>
             <div className="space-y-2">

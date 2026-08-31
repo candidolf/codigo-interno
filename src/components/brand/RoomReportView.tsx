@@ -21,32 +21,40 @@ export function RoomReportView({
 }) {
   const reveal = report.revelacoes[0];
   const tone = colors[theme] ?? colors.discovery;
+  const normalizedCode = reveal.codigo
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+  const displayCode = /^[A-Z0-9]{3}$/.test(normalizedCode)
+    ? normalizedCode
+    : roomNumber
+      ? `S${roomNumber}`
+      : "CI";
   return (
-    <article className={cn("rounded-3xl border-2 bg-background/80 p-6 sm:p-10 shadow-2xl", tone)}>
-      <p className="text-xs uppercase tracking-[0.25em] font-semibold">Revelação da sala</p>
-      <div className="mt-4 flex items-start gap-4 border-b border-current/20 pb-5">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-current/20 font-bold">
-          {reveal.codigo}
+    <article className={cn("rounded-2xl border bg-background/90 p-5 shadow-xl sm:p-7", tone)}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em]">Revelação da sala</p>
+      <div className="mt-3 flex items-start gap-3 border-b border-current/20 pb-4">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-current/15 text-xs font-bold">
+          {displayCode}
         </span>
-        <div>
-          <h1 className="font-display text-3xl sm:text-5xl font-bold uppercase text-foreground">
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl font-bold uppercase leading-tight text-foreground sm:text-3xl">
             {reveal.titulo}
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-1.5 text-xs text-muted-foreground sm:text-sm">
             {report.nome} | {report.idade} anos
             {roomNumber ? ` | Sala ${roomNumber} de ${totalRooms ?? report.revelacoes.length}` : ""}
           </p>
         </div>
       </div>
-      <p className="mt-8 text-xl sm:text-2xl italic leading-relaxed text-foreground">
-        {reveal.texto}
-      </p>
-      <div className="mt-10 grid gap-4">
+      <p className="mt-5 text-base italic leading-7 text-foreground sm:text-lg">{reveal.texto}</p>
+      <div className="mt-6 grid gap-3">
         <Insight title="O que te move" value={reveal.move} />
         <Insight title="O que te dá energia" value={reveal.energia} />
         <Insight title="O que te trava" value={reveal.trava} />
       </div>
-      <p className="mt-8 border-t border-current/20 pt-4 text-xs text-muted-foreground">
+      <p className="mt-6 border-t border-current/20 pt-3 text-[10px] text-muted-foreground">
         MÉTODO CÓDIGO INTERNO · metodocodigointerno.com.br
       </p>
     </article>
@@ -55,9 +63,9 @@ export function RoomReportView({
 
 function Insight({ title, value }: { title: string; value: string }) {
   return (
-    <section className="rounded-2xl border border-current/20 bg-current/10 p-5">
-      <h2 className="text-xs uppercase tracking-widest font-bold">{title}</h2>
-      <p className="mt-2 text-base leading-relaxed text-foreground/80">{value}</p>
+    <section className="rounded-xl border border-current/20 bg-current/10 p-4">
+      <h2 className="text-[11px] font-bold uppercase tracking-widest">{title}</h2>
+      <p className="mt-1.5 text-sm leading-6 text-foreground/80">{value}</p>
     </section>
   );
 }

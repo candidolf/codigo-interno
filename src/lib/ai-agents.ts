@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 export type AiAgent = {
   id: string;
   name: string;
-  kind: "question_generator" | "report_analyzer";
+  kind: "question_generator" | "report_analyzer" | "room_report_analyzer";
   model: string;
   response_format: "text" | "json_object";
 };

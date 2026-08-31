@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, PartyPopper, AlertTriangle } from "lucide-react";
 import { fetchReport, generateReport } from "@/lib/report";
 import { downloadIdentityCardPdf, downloadReportPdf } from "@/lib/report-pdf";
-import { ReportContent } from "@/components/brand/ReportContent";
+import { parseReportDocument } from "@/lib/report-schema";
 
 export const Route = createFileRoute("/teste/$id/concluido")({ component: Concluido });
 
@@ -43,7 +44,16 @@ function Concluido() {
   useEffect(() => {
     if (isLoading || started.current) return;
     started.current = true;
-    if (existing?.status === "gerando" || (existing?.status === "pronto" && existing.content)) {
+    let hasFinalDocument = false;
+    if (existing?.status === "pronto" && existing.content) {
+      try {
+        parseReportDocument(existing.content);
+        hasFinalDocument = true;
+      } catch {
+        hasFinalDocument = false;
+      }
+    }
+    if (existing?.status === "gerando" || hasFinalDocument) {
       setGenerating(false);
       return;
     }
@@ -54,57 +64,94 @@ function Concluido() {
   const pdfOptions = existing?.content
     ? { content: existing.content, testandoName: "seu relatório", createdAt: existing.updated_at }
     : null;
+  const hasFinalDocument = (() => {
+    if (existing?.status !== "pronto" || !existing.content) return false;
+    try {
+      parseReportDocument(existing.content);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  const displayGenerating = isLoading || generating || existing?.status === "gerando";
 
   return (
     <div className="min-h-screen">
       <BrandHeader />
       <main className="container mx-auto px-6 py-20 max-w-xl text-center">
         <span className="inline-grid place-items-center h-20 w-20 rounded-3xl bg-gradient-brand text-white mx-auto">
-          {generating ? (
+          {displayGenerating ? (
             <Loader2 className="h-9 w-9 animate-spin" />
           ) : (
             <PartyPopper className="h-9 w-9" />
           )}
         </span>
         <h1 className="font-display text-3xl sm:text-4xl font-bold mt-6">Você concluiu o teste!</h1>
-        {generating && (
+        {displayGenerating && (
           <p className="text-muted-foreground mt-3">
-            A IA está iniciando a análise. O relatório continuará sendo preparado em segundo plano.
+            A IA está preparando o relatório final. Esta tela será atualizada automaticamente.
           </p>
         )}
-        {!generating && !error && existing?.status === "pronto" && pdfOptions && (
-          <section className="glass rounded-2xl p-8 mt-8">
-            <p className="text-xs uppercase tracking-widest text-brand-purple">Resultado oficial</p>
-            <h2 className="font-display text-2xl font-bold mt-3">Seu relatório está pronto</h2>
-            <p className="text-sm text-muted-foreground mt-2">
-              Seu relatório final está pronto para ser guardado.
-            </p>
-            {pdfOptions && (
-              <div className="mt-8 text-left">
-                <ReportContent content={pdfOptions.content} />
+        {!generating &&
+          !error &&
+          existing?.status === "pronto" &&
+          hasFinalDocument &&
+          pdfOptions && (
+            <section className="glass rounded-2xl p-8 mt-8">
+              <p className="text-xs uppercase tracking-widest text-brand-purple">
+                Resultado oficial
+              </p>
+              <h2 className="font-display text-2xl font-bold mt-3">Seu relatório está pronto</h2>
+              <p className="text-sm text-muted-foreground mt-2">
+                Seu relatório final está pronto para ser guardado.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
+                <GradientButton
+                  onClick={() =>
+                    void downloadReportPdf(pdfOptions).catch((caught: unknown) => {
+                      console.error("Falha ao criar PDF final", caught);
+                      toast.error("Não foi possível baixar o PDF do relatório.");
+                    })
+                  }
+                >
+                  <Download className="h-4 w-4" /> Baixar relatório final
+                </GradientButton>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    void downloadIdentityCardPdf(pdfOptions).catch((caught: unknown) => {
+                      console.error("Falha ao criar card de identidade", caught);
+                      toast.error("Não foi possível baixar o card.");
+                    })
+                  }
+                >
+                  <Download className="h-4 w-4" /> Baixar somente o card
+                </Button>
               </div>
+            </section>
+          )}
+        {!generating && !error && existing?.status === "pronto" && !hasFinalDocument && (
+          <section className="glass rounded-2xl p-6 mt-8 text-left border border-destructive/40">
+            <p className="font-semibold text-destructive">
+              O relatório não ficou válido após a regeneração.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Tente gerar novamente para criar o relatório final.
+            </p>
+            <GradientButton className="mt-5" onClick={() => void run()} disabled={generating}>
+              Tentar novamente
+            </GradientButton>
+          </section>
+        )}
+        {!generating && !error && existing?.status === "erro" && (
+          <section className="glass rounded-2xl p-6 mt-8 text-left border border-destructive/40">
+            <p className="font-semibold text-destructive">A geração do relatório falhou.</p>
+            {existing.error && (
+              <p className="text-sm text-muted-foreground mt-2 break-words">{existing.error}</p>
             )}
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <GradientButton
-                onClick={() =>
-                  void downloadReportPdf(pdfOptions).catch(() =>
-                    setError("Não foi possível abrir o PDF do relatório."),
-                  )
-                }
-              >
-                <Download className="h-4 w-4" /> Baixar relatório final
-              </GradientButton>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  void downloadIdentityCardPdf(pdfOptions).catch(() =>
-                    setError("Não foi possível baixar o card."),
-                  )
-                }
-              >
-                <Download className="h-4 w-4" /> Baixar somente o card
-              </Button>
-            </div>
+            <GradientButton className="mt-5" onClick={() => void run()} disabled={generating}>
+              Tentar novamente
+            </GradientButton>
           </section>
         )}
         {error && (

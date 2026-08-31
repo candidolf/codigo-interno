@@ -30,25 +30,25 @@ async function createRoomReportPdf(opts: PdfOptions): Promise<Blob> {
 
   report.revelacoes.forEach((reveal, index) => {
     if (index > 0) doc.addPage();
-    const color = COLORS[index % COLORS.length];
+    const color = COLORS[index % COLORS.length]!;
     const dark = [10, 8, 27] as const;
     doc.setFillColor(...dark);
     doc.rect(0, 0, pageW, pageH, "F");
-    doc.setFillColor(...color);
+    doc.setFillColor(color[0], color[1], color[2]);
     doc.roundedRect(margin - 1, 28, contentW + 2, 30, 8, 8, "F");
     doc.setFillColor(25, 19, 31);
     doc.rect(margin, 58, contentW, 88, "F");
     doc.setFillColor(39, 28, 35);
     doc.rect(margin, 146, contentW, 43, "F");
 
-    doc.setFillColor(...color);
+    doc.setFillColor(color[0], color[1], color[2]);
     doc.circle(margin + 42, 114, 30, "F");
     doc.setTextColor(255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     doc.text(reveal.codigo, margin + 42, 119, { align: "center" });
 
-    doc.setTextColor(...color);
+    doc.setTextColor(color[0], color[1], color[2]);
     doc.setFontSize(12);
     doc.text(
       index === 0
@@ -75,7 +75,7 @@ async function createRoomReportPdf(opts: PdfOptions): Promise<Blob> {
     doc.line(margin, 195, pageW - margin, 195);
 
     let y = 236;
-    doc.setDrawColor(...color);
+    doc.setDrawColor(color[0], color[1], color[2]);
     doc.setLineWidth(5);
     doc.line(margin + 2, y - 8, margin + 2, y + 100);
     y = drawWrapped(
@@ -103,7 +103,7 @@ async function createRoomReportPdf(opts: PdfOptions): Promise<Blob> {
     doc.setTextColor(113, 108, 145);
     doc.setFontSize(9);
     doc.text("METODO CODIGO INTERNO", margin, pageH - 38);
-    doc.setTextColor(...color);
+    doc.setTextColor(color[0], color[1], color[2]);
     doc.setFont("helvetica", "bold");
     doc.text("metodocodigointerno.com.br", pageW - margin, pageH - 38, { align: "right" });
   });
@@ -182,81 +182,264 @@ export async function createReportPdf(opts: PdfOptions): Promise<Blob> {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 48;
-  let y = 58;
-  const sections: [string, string][] = [
-    ["Quem Você É", `${report.identidade.titulo}\n${report.identidade.descricao}`],
-    [
-      "Seu Mapa Psicológico",
-      [...report.mapa_psicologico.temperamentos, ...report.mapa_psicologico.inteligencias]
-        .map((x) => `${x.nome}: ${x.percentual}%${x.descricao ? ` - ${x.descricao}` : ""}`)
-        .join("\n"),
-    ],
-    [
-      "Sua Sombra e Seu Dom Oculto",
-      `A sombra: ${report.sombra_e_dom.sombra}\n\nO dom oculto: ${report.sombra_e_dom.dom_oculto}`,
-    ],
-    [
-      "Como Você Funciona",
-      `O que te dá energia:\n${report.como_funciona.energiza.join("\n")}\n\nO que te drena:\n${report.como_funciona.drena.join("\n")}`,
-    ],
-    [
-      "Profissões + Estilo de Vida",
-      report.profissoes_estilo_de_vida
-        .map((x) => `${x.titulo} (${x.compatibilidade ?? "-"}%)\n${x.descricao}`)
-        .join("\n\n"),
-    ],
-    [
-      "O Que Desenvolver",
-      report.desenvolvimento.map((x) => `${x.titulo}: ${x.descricao}`).join("\n"),
-    ],
-    [
-      "Missão dos Próximos 12 Meses",
-      report.missao_12_meses.map((x) => `${x.numero}. ${x.titulo}: ${x.descricao}`).join("\n"),
-    ],
-    [
-      "Manual dos Pais",
-      `Como aprende: ${report.manual_dos_pais.como_aprende}\n\nComo reage sob pressão: ${report.manual_dos_pais.reage_sob_pressao}\n\nO que fazer:\n${report.manual_dos_pais.fazer.join("\n")}`,
-    ],
-    ["Mensagem Final", report.mensagem_final],
-    [
-      "SEU CARD DE IDENTIDADE",
-      `${report.card_identidade.titulo}\n${report.card_identidade.frase}\n\n${report.card_identidade.tracos.join(" · ")}`,
-    ],
-  ];
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.text("RESULTADO OFICIAL", margin, y);
-  y += 28;
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "normal");
-  doc.text(
-    `${report.identidade.codigo ?? ""}  |  ${report.identidade.titulo}  |  ${opts.testandoName}`,
-    margin,
-    y,
-  );
-  y += 36;
-  for (const [title, text] of sections) {
-    const lines = doc.splitTextToSize(text, pageW - margin * 2 - 24) as string[];
-    const height = 36 + lines.length * 15;
-    if (y + height > pageH - 52) {
-      doc.addPage();
-      y = 58;
+  const contentW = pageW - margin * 2;
+  const purple = [91, 65, 180] as const;
+  const gold = [203, 153, 55] as const;
+  const ink = [38, 34, 51] as const;
+  const muted = [98, 92, 116] as const;
+  let y = 56;
+
+  const addContentPage = () => {
+    doc.addPage();
+    doc.setFillColor(250, 249, 253);
+    doc.rect(0, 0, pageW, pageH, "F");
+    y = 54;
+  };
+  const ensureSpace = (height: number) => {
+    if (y + height > pageH - 56) addContentPage();
+  };
+  const linesFor = (text: string, width = contentW, fontSize = 10) => {
+    doc.setFontSize(fontSize);
+    return doc.splitTextToSize(text, width) as string[];
+  };
+  const paragraph = (
+    text: string,
+    options: { label?: string; color?: readonly [number, number, number]; italic?: boolean } = {},
+  ) => {
+    const labelHeight = options.label ? 20 : 0;
+    const lines = linesFor(text, contentW - 24, 10);
+    const height = labelHeight + lines.length * 15 + 24;
+    ensureSpace(height);
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(228, 224, 238);
+    doc.roundedRect(margin, y, contentW, height, 8, 8, "FD");
+    let textY = y + 19;
+    if (options.label) {
+      doc.setTextColor(...(options.color ?? purple));
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text(options.label.toUpperCase(), margin + 12, textY);
+      textY += 20;
     }
-    doc.setFillColor(33, 27, 58);
-    doc.roundedRect(margin, y, pageW - margin * 2, height, 10, 10, "F");
-    doc.setTextColor(205, 153, 55);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.text(title, margin + 12, y + 22);
-    doc.setTextColor(235, 233, 244);
-    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...ink);
+    doc.setFont("helvetica", options.italic ? "italic" : "normal");
     doc.setFontSize(10);
-    doc.text(lines, margin + 12, y + 43, { lineHeightFactor: 1.45 });
-    y += height + 14;
+    doc.text(lines, margin + 12, textY, { lineHeightFactor: 1.45 });
+    y += height + 10;
+  };
+  const section = (title: string, subtitle?: string, forcePage = false) => {
+    if (forcePage || y > pageH - 150) addContentPage();
+    doc.setTextColor(...purple);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(19);
+    doc.text(title, margin, y);
+    y += 17;
+    if (subtitle) {
+      doc.setTextColor(...muted);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(subtitle, margin, y);
+      y += 18;
+    } else {
+      y += 7;
+    }
+  };
+  const bullets = (
+    label: string,
+    items: string[],
+    color: readonly [number, number, number] = purple,
+  ) => {
+    if (!items.length) return;
+    const text = items.map((item) => `• ${item}`).join("\n");
+    paragraph(text, { label, color });
+  };
+  const titledCards = (items: { titulo: string; descricao: string }[]) => {
+    for (const item of items) paragraph(item.descricao, { label: item.titulo });
+  };
+  const metrics = (
+    label: string,
+    items: { nome: string; percentual: number; classificacao?: string; descricao?: string }[],
+  ) => {
+    if (!items.length) return;
+    ensureSpace(32);
+    doc.setTextColor(...purple);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(label.toUpperCase(), margin, y);
+    y += 16;
+    for (const item of items) {
+      const description = [item.classificacao, item.descricao].filter(Boolean).join(" - ");
+      const lines = description ? linesFor(description, contentW - 96, 8) : [];
+      const height = Math.max(34, 22 + lines.length * 11);
+      ensureSpace(height + 7);
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(228, 224, 238);
+      doc.roundedRect(margin, y, contentW, height, 7, 7, "FD");
+      doc.setTextColor(...ink);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(item.nome, margin + 11, y + 16);
+      doc.setTextColor(...purple);
+      doc.text(`${item.percentual}%`, pageW - margin - 11, y + 16, { align: "right" });
+      if (lines.length) {
+        doc.setTextColor(...muted);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(lines, margin + 11, y + 29, { lineHeightFactor: 1.3 });
+      }
+      y += height + 7;
+    }
+    y += 4;
+  };
+
+  // Capa oficial.
+  doc.setFillColor(13, 9, 35);
+  doc.rect(0, 0, pageW, pageH, "F");
+  doc.setTextColor(...gold);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("RESULTADO OFICIAL", pageW / 2, 92, { align: "center" });
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.text("MÉTODO CÓDIGO INTERNO", pageW / 2, 120, { align: "center" });
+  doc.setFontSize(28);
+  doc.text(opts.testandoName, pageW / 2, 290, { align: "center", maxWidth: contentW });
+  doc.setTextColor(...gold);
+  doc.setFontSize(12);
+  doc.text(`CÓDIGO: ${report.identidade.codigo ?? "—"}`, pageW / 2, 320, { align: "center" });
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(24);
+  doc.text(report.identidade.titulo, pageW / 2, 385, { align: "center", maxWidth: contentW });
+  if (report.identidade.subtitulo) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(13);
+    doc.text(report.identidade.subtitulo, pageW / 2, 420, { align: "center", maxWidth: contentW });
   }
-  doc.setTextColor(113, 108, 145);
-  doc.setFontSize(8);
-  doc.text("metodocodigointerno.com.br", pageW - margin, pageH - 24, { align: "right" });
+  const identityMeta = [
+    report.identidade.temperamento,
+    report.identidade.arquetipo,
+    report.identidade.inteligencia,
+    report.identidade.raridade,
+  ].filter(Boolean);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(198, 192, 218);
+  doc.text(identityMeta.join("  •  "), pageW / 2, 485, { align: "center", maxWidth: contentW });
+
+  addContentPage();
+  section("Quem Você É", "Seu arquétipo principal e essência profunda");
+  paragraph(report.identidade.descricao, { label: report.identidade.titulo, italic: false });
+  bullets("Arquétipos secundários", report.identidade.arquetipos_secundarios);
+
+  section("Seu Mapa Psicológico", "Temperamentos, inteligências e padrões profundos", true);
+  metrics("Os 4 temperamentos", report.mapa_psicologico.temperamentos);
+  metrics("Inteligências múltiplas", report.mapa_psicologico.inteligencias);
+  section("Sua Sombra e Seu Dom Oculto", "O padrão que limita e o tesouro que ele esconde", true);
+  paragraph(report.sombra_e_dom.sombra, { label: "A sombra", color: [212, 62, 118] });
+  paragraph(report.sombra_e_dom.dom_oculto, {
+    label: "O dom oculto por trás",
+    color: [22, 151, 120],
+  });
+  if (report.sombra_e_dom.fechamento) paragraph(report.sombra_e_dom.fechamento, { italic: true });
+
+  section("Como Você Funciona", "O que dá energia, o que drena e como aprende", true);
+  bullets("O que te dá energia", report.como_funciona.energiza, [22, 151, 120]);
+  bullets("O que te drena", report.como_funciona.drena, [212, 62, 118]);
+  titledCards(report.como_funciona.aprende_melhor);
+
+  section("Profissões + Estilo de Vida", "Não é só a profissão: é como viver dentro dela", true);
+  for (const career of report.profissoes_estilo_de_vida) {
+    ensureSpace(70);
+    doc.setTextColor(...ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text(career.titulo, margin, y);
+    if (career.compatibilidade != null) {
+      doc.setTextColor(...purple);
+      doc.text(`${career.compatibilidade}%`, pageW - margin, y, { align: "right" });
+    }
+    y += 12;
+    paragraph(career.descricao);
+    titledCards(career.estilos_de_vida);
+    bullets("Áreas de atuação", career.areas);
+    if (career.faixas_salariais.length) {
+      const salaryText = career.faixas_salariais
+        .map((row) => `${row.nivel}: ${row.faixa}${row.observacao ? ` - ${row.observacao}` : ""}`)
+        .join("\n");
+      paragraph(salaryText, { label: "Faixas salariais" });
+    }
+    y += 8;
+  }
+
+  section("O Que Desenvolver", "As próximas versões de você", true);
+  titledCards(report.desenvolvimento);
+  section("Missão dos Próximos 12 Meses", "Ações concretas, não apenas planos");
+  titledCards(
+    report.missao_12_meses.map((item) => ({
+      titulo: `${item.numero}. ${item.titulo}`,
+      descricao: item.descricao,
+    })),
+  );
+
+  section("Manual dos Pais", "Como se relacionar, motivar e apoiar da forma certa", true);
+  paragraph(report.manual_dos_pais.como_aprende, { label: "Como aprende" });
+  paragraph(report.manual_dos_pais.reage_sob_pressao, { label: "Como reage sob pressão" });
+  paragraph(report.manual_dos_pais.linguagem_que_chega, { label: "A linguagem que chega" });
+  bullets("O que fazer", report.manual_dos_pais.fazer, [22, 151, 120]);
+  bullets("O que evitar", report.manual_dos_pais.evitar, [212, 62, 118]);
+
+  section("Mensagem Final", undefined, true);
+  paragraph(report.mensagem_final, { italic: true });
+
+  addContentPage();
+  doc.setFillColor(13, 9, 35);
+  doc.rect(0, 0, pageW, pageH, "F");
+  doc.setTextColor(...gold);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("SEU CARD DE IDENTIDADE", pageW / 2, 105, { align: "center" });
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(26);
+  doc.text(report.card_identidade.titulo.toUpperCase(), pageW / 2, 220, {
+    align: "center",
+    maxWidth: contentW,
+  });
+  if (report.card_identidade.subtitulo) {
+    doc.setTextColor(...gold);
+    doc.setFontSize(12);
+    doc.text(report.card_identidade.subtitulo, pageW / 2, 252, {
+      align: "center",
+      maxWidth: contentW,
+    });
+  }
+  doc.setTextColor(225, 221, 238);
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(13);
+  doc.text(report.card_identidade.frase, pageW / 2, 320, { align: "center", maxWidth: contentW });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.text(report.card_identidade.tracos.join("  •  "), pageW / 2, 400, {
+    align: "center",
+    maxWidth: contentW,
+  });
+  const cardMetrics = report.card_identidade.metricas
+    .map((metric) => `${metric.nome} ${metric.percentual}`)
+    .join("     ");
+  doc.setTextColor(...gold);
+  doc.setFont("helvetica", "bold");
+  doc.text(cardMetrics, pageW / 2, 475, { align: "center", maxWidth: contentW });
+
+  const totalPages = doc.getNumberOfPages();
+  for (let page = 1; page <= totalPages; page++) {
+    doc.setPage(page);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(page === 1 || page === totalPages ? 150 : 113, 108, 145);
+    doc.text("MÉTODO CÓDIGO INTERNO", margin, pageH - 24);
+    doc.text(`${page}/${totalPages}  •  metodocodigointerno.com.br`, pageW - margin, pageH - 24, {
+      align: "right",
+    });
+  }
   return doc.output("blob");
 }
 
