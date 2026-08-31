@@ -38,6 +38,35 @@ const REPORT_JSON_SCHEMA = {
   required: ["schema_version", "nome", "idade", "revelacoes"],
 };
 
+const ROOM_REPORT_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    schema_version: { type: "integer", enum: [1] },
+    nome: { type: "string" },
+    idade: { type: "string" },
+    revelacoes: {
+      type: "array",
+      minItems: 1,
+      maxItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          titulo: { type: "string" },
+          codigo: { type: "string" },
+          texto: { type: "string" },
+          move: { type: "string" },
+          energia: { type: "string" },
+          trava: { type: "string" },
+        },
+        required: ["titulo", "codigo", "texto", "move", "energia", "trava"],
+      },
+    },
+  },
+  required: ["schema_version", "nome", "idade", "revelacoes"],
+};
+
 /*
  * The report is intentionally one revelation per room. The fixed labels and
  * visual treatment are applied by the PDF renderer; the model only writes
@@ -288,13 +317,27 @@ async function openAIError(res: Response): Promise<string> {
   }
 }
 
-function structuredFormat(kind: string, responseFormat: string) {
+function structuredFormat(kind: string, responseFormat: string, roomReport = false) {
   if (responseFormat !== "json_object") return { type: "text" };
+  // The final document has a large, nested contract maintained by the app;
+  // json_object keeps the Edge Function compatible with existing agents while
+  // the client validates the persisted document before rendering it.
+  if (kind === "report_analyzer" && !roomReport) return { type: "json_object" };
   return {
     type: "json_schema",
-    name: kind === "report_analyzer" ? "test_report" : "generated_questions",
+    name:
+      kind === "report_analyzer"
+        ? roomReport
+          ? "room_report"
+          : "test_report"
+        : "generated_questions",
     strict: true,
-    schema: kind === "report_analyzer" ? REPORT_JSON_SCHEMA : QUESTIONS_JSON_SCHEMA,
+    schema:
+      kind === "report_analyzer"
+        ? roomReport
+          ? ROOM_REPORT_JSON_SCHEMA
+          : REPORT_JSON_SCHEMA
+        : QUESTIONS_JSON_SCHEMA,
   };
 }
 
@@ -514,8 +557,10 @@ Deno.serve(async (req) => {
     const agentId: string | undefined = requestBody.agentId;
     const agentKind: string | undefined = requestBody.agentKind;
     const purchaseId: string | undefined = requestBody.purchaseId;
+    const roomSlug: string | undefined = requestBody.roomSlug;
     const requestedVariables: Record<string, unknown> = requestBody.variables ?? {};
     const background = requestBody.background === true;
+    const isRoomReport = action === "generate_room_report";
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -543,16 +588,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (isRoomReport && (!purchaseId || !roomSlug))
+      return json({ error: "Informe purchaseId e roomSlug" }, 400);
     if (action === "check_report") {
       if (!purchaseId || !purchase) return json({ error: "Informe purchaseId" }, 400);
       return checkReport(admin, openaiKey, purchaseId);
     }
     if (!agentId && !agentKind) return json({ error: "Informe agentId ou agentKind" }, 400);
-    if (!isAdmin && (!purchase || agentId || agentKind !== "report_analyzer"))
+    if (!isAdmin && (!purchase || agentId || (agentKind !== "report_analyzer" && !isRoomReport)))
       return json({ error: "Não autorizado" }, 403);
 
     let query = admin.from("ai_agents").select("*").eq("active", true).order("sort_order").limit(1);
-    query = agentId ? query.eq("id", agentId) : query.eq("kind", agentKind!);
+    query = agentId ? query.eq("id", agentId) : query.eq("kind", agentKind ?? "report_analyzer");
     const { data: agent, error: agentErr } = await query.maybeSingle();
     if (agentErr) return json({ error: agentErr.message }, 500);
     if (!agent) return json({ error: "Agente não encontrado ou inativo" }, 404);
@@ -566,11 +613,13 @@ Deno.serve(async (req) => {
     const variables = isReport
       ? await buildReportVariables(admin, purchaseId!)
       : requestedVariables;
-    const userContent = interpolate(agent.user_prompt_template ?? "", variables);
+    const userContent = isRoomReport
+      ? `Nome: ${variables.nome}\nIdade: ${variables.idade}\nSala: ${roomSlug}\n\nRespostas da sala:\n${variables.respostas}\n\nGere uma revelação acolhedora e específica para esta sala. Retorne somente JSON válido com schema_version 1, nome, idade e um único item em revelacoes. O item deve conter titulo, codigo, texto, move, energia e trava. Não use markdown.`
+      : interpolate(agent.user_prompt_template ?? "", variables);
     if (!userContent.trim()) return json({ error: "Prompt do usuário vazio" }, 400);
 
     let generationId: string | null = null;
-    if (isReport && background) {
+    if (isReport && background && !isRoomReport) {
       const { data: claim, error: claimError } = await admin.rpc("claim_test_report_generation", {
         _purchase_id: purchaseId,
         _agent_id: agent.id,
@@ -603,11 +652,11 @@ Deno.serve(async (req) => {
       max_output_tokens: maxOutputTokens,
       reasoning: { effort },
       text: {
-        format: structuredFormat(agent.kind, agent.response_format),
+        format: structuredFormat(agent.kind, agent.response_format, isRoomReport),
         verbosity: isReport ? "medium" : "low",
       },
       store: true,
-      background: isReport && background,
+      background: isReport && background && !isRoomReport,
       safety_identifier: await safetyIdentifier(userData.user.id),
       metadata: {
         agent_id: agent.id,
@@ -630,6 +679,32 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
+    if (isRoomReport) {
+      if (data.status !== "completed") return json({ error: responseFailure(data) }, 502);
+      const content = extractOutputText(data);
+      let parsed: Record<string, any>;
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        return json({ error: "A OpenAI retornou JSON inválido." }, 502);
+      }
+      const { data: report, error: reportError } = await admin
+        .from("test_room_reports")
+        .upsert(
+          {
+            purchase_id: purchaseId!,
+            room_slug: roomSlug!,
+            status: "pronto",
+            content: JSON.stringify(parsed),
+            error: null,
+          },
+          { onConflict: "purchase_id,room_slug" },
+        )
+        .select("*")
+        .single();
+      if (reportError) return json({ error: reportError.message }, 500);
+      return json({ agent: { id: agent.id, name: agent.name, kind: agent.kind, model }, report });
+    }
     if (isReport && background && generationId) {
       const { error: updateError } = await admin
         .from("test_reports")

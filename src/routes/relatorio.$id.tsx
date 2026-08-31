@@ -7,8 +7,9 @@ import { GradientButton } from "@/components/brand/GradientButton";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchReport, generateReport } from "@/lib/report";
-import { openReportPdf } from "@/lib/report-pdf";
-import { ExternalLink, AlertTriangle, Loader2 } from "lucide-react";
+import { downloadIdentityCardPdf, downloadReportPdf } from "@/lib/report-pdf";
+import { Download, AlertTriangle, Loader2 } from "lucide-react";
+import { ReportContent } from "@/components/brand/ReportContent";
 
 export const Route = createFileRoute("/relatorio/$id")({
   component: Relatorio,
@@ -82,9 +83,7 @@ function Relatorio() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-widest text-muted-foreground">Relatório</p>
-            <h1 className="font-display text-3xl sm:text-4xl font-bold mt-1">
-              Revelações por sala
-            </h1>
+            <h1 className="font-display text-3xl sm:text-4xl font-bold mt-1">Relatório final</h1>
             <p className="text-sm text-muted-foreground mt-1">{testandoName}</p>
           </div>
         </div>
@@ -130,24 +129,39 @@ function Relatorio() {
         {report?.status === "pronto" && pdfOptions && (
           <>
             <section className="glass rounded-2xl p-8 sm:p-12 mt-8 text-center">
-              <p className="text-xs uppercase tracking-widest text-brand-purple">Resultado oficial</p>
+              <p className="text-xs uppercase tracking-widest text-brand-purple">
+                Resultado oficial
+              </p>
               <h2 className="font-display text-2xl sm:text-3xl font-bold mt-3">
                 Seu relatório está pronto
               </h2>
               <p className="text-sm text-muted-foreground mt-3 max-w-lg mx-auto">
-                Abra a sua jornada completa ou baixe o PDF para guardar e compartilhar.
+                Consulte o relatório completo ou baixe o PDF final para guardar e compartilhar.
               </p>
+              <div className="mt-8 text-left">
+                <ReportContent content={report.content} />
+              </div>
               <div className="mt-7 flex flex-wrap justify-center gap-3">
                 <GradientButton
                   onClick={() =>
-                    void openReportPdf(pdfOptions).catch(() =>
-                      toast.error("Não foi possível abrir o PDF do relatório"),
+                    void downloadReportPdf(pdfOptions).catch(() =>
+                      toast.error("Não foi possível baixar o PDF do relatório"),
                     )
                   }
                 >
-                  <ExternalLink className="h-4 w-4" />
-                  Abrir ou baixar relatório oficial
+                  <Download className="h-4 w-4" />
+                  Baixar relatório final
                 </GradientButton>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    void downloadIdentityCardPdf(pdfOptions).catch(() =>
+                      toast.error("Não foi possível baixar o card"),
+                    )
+                  }
+                >
+                  <Download className="h-4 w-4" /> Baixar somente o card
+                </Button>
               </div>
             </section>
             <div className="mt-6 flex flex-wrap gap-3">

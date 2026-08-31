@@ -16,6 +16,9 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*

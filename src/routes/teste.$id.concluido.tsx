@@ -4,9 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { BrandHeader } from "@/components/brand/BrandHeader";
 import { GradientButton } from "@/components/brand/GradientButton";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Loader2, PartyPopper, AlertTriangle } from "lucide-react";
+import { Download, Loader2, PartyPopper, AlertTriangle } from "lucide-react";
 import { fetchReport, generateReport } from "@/lib/report";
-import { openReportPdf } from "@/lib/report-pdf";
+import { downloadIdentityCardPdf, downloadReportPdf } from "@/lib/report-pdf";
+import { ReportContent } from "@/components/brand/ReportContent";
 
 export const Route = createFileRoute("/teste/$id/concluido")({ component: Concluido });
 
@@ -16,7 +17,11 @@ function Concluido() {
   const [generating, setGenerating] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: existing, isLoading, refetch } = useQuery({
+  const {
+    data: existing,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["test-report", id],
     queryFn: () => fetchReport(id),
     refetchInterval: (query) => (query.state.data?.status === "gerando" ? 3000 : false),
@@ -72,18 +77,33 @@ function Concluido() {
             <p className="text-xs uppercase tracking-widest text-brand-purple">Resultado oficial</p>
             <h2 className="font-display text-2xl font-bold mt-3">Seu relatório está pronto</h2>
             <p className="text-sm text-muted-foreground mt-2">
-              Abra a sua jornada completa ou baixe o PDF para guardar.
+              Seu relatório final está pronto para ser guardado.
             </p>
+            {pdfOptions && (
+              <div className="mt-8 text-left">
+                <ReportContent content={pdfOptions.content} />
+              </div>
+            )}
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <GradientButton
                 onClick={() =>
-                  void openReportPdf(pdfOptions).catch(() =>
+                  void downloadReportPdf(pdfOptions).catch(() =>
                     setError("Não foi possível abrir o PDF do relatório."),
                   )
                 }
               >
-                <ExternalLink className="h-4 w-4" /> Abrir relatório oficial
+                <Download className="h-4 w-4" /> Baixar relatório final
               </GradientButton>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  void downloadIdentityCardPdf(pdfOptions).catch(() =>
+                    setError("Não foi possível baixar o card."),
+                  )
+                }
+              >
+                <Download className="h-4 w-4" /> Baixar somente o card
+              </Button>
             </div>
           </section>
         )}
